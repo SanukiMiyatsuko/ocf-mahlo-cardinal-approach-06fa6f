@@ -293,13 +293,13 @@ decreasing_by all_goals (try simp only [Tm.size]); all_goals (apply lex3 <;> int
 def baseOf (σ t : Tm) : Bool :=
   match σ with
   | Om c =>
-    if h : isSucc c = true then cmp (omOf (predT c)) t == .lt
+    if _h : isSucc c = true then cmp (omOf (predT c)) t == .lt
     else c == zero && t != zero
   | Xi m d => cmp (kTerm (m - 1)) t == .lt && inC d d t
   | _ => false
 termination_by (max σ.size t.size, σ.size + t.size, 2)
 decreasing_by
-  · have := size_omOf_predT_lt h
+  · have := size_omOf_predT_lt _h
     simp only [Tm.size] at this
     simp only [Tm.size]
     apply lex3 <;> intros <;> omega

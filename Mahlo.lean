@@ -16,3 +16,14 @@ import Mahlo.WF.Fund
 import Mahlo.Unconditional
 import Mahlo.Agree
 import Mahlo.Design
+import Mahlo.FS.Class
+import Mahlo.FS.Memo
+import Mahlo.FS.Def
+import Mahlo.FS.Seq
+import Mahlo.FS.Arith
+import Mahlo.FS.CLem
+import Mahlo.FS.Dom
+import Mahlo.FS.Order
+import Mahlo.FS.Props
+import Mahlo.FS.Base
+import Mahlo.FS.Inst

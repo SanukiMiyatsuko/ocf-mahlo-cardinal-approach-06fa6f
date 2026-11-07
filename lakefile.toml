@@ -8,3 +8,11 @@ name = "Mahlo"
 [[lean_exe]]
 name = "mahlo"
 root = "Main"
+
+[[lean_exe]]
+name = "fstest"
+root = "FSTest"
+
+[[lean_exe]]
+name = "fstime"
+root = "FSTime"
