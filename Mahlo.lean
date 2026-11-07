@@ -1,3 +1,18 @@
--- This module serves as the root of the `Mahlo` library.
--- Import modules here that should be built as part of the library.
+import Mahlo.Ordinal
+import Mahlo.Setting
 import Mahlo.Basic
+import Mahlo.Compare
+import Mahlo.Notation
+import Mahlo.Gen
+import Mahlo.Good
+import Mahlo.Correct
+import Mahlo.NF
+import Mahlo.Succ
+import Mahlo.Complete
+import Mahlo.WF.Syntax
+import Mahlo.WF.Order
+import Mahlo.WF.Wmax
+import Mahlo.WF.Fund
+import Mahlo.Unconditional
+import Mahlo.Agree
+import Mahlo.Design
