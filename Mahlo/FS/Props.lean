@@ -6,7 +6,7 @@ import Mahlo.FS.CLem
 * `NatProps t`：共終数 `ω` の列の性質、`BigProps t σ`：共終数が正則項 `σ` の列の性質、`Props t`：その両方。
 * 和 `a + b`・正則項（`M_n`・`Ω_0`・`Ω_{c+1}`・`Ξ_n(d)`）・`Ω_c`（`c` 極限）の列の性質は、部分項の性質から出る
   （`props_plus`・`props_reg`・`props_om`）。
-* 崩壊 `Ψ_π(X)` の列の性質は仮定 `PsiProps` として受け取り、全ての標準形について `Props` を示す（`props_all`）。 -/
+* 全ての標準形の列の性質は、不変量（`Inv.lean`）を強めた帰納法で示す（`inv_all`）。 -/
 
 namespace MahloOCF.FS
 
@@ -182,42 +182,22 @@ theorem props_M {n : Nat} (h : WNF (.M n)) : Props (.M n) := by
   cases hd
   exact bigProps_reg h rfl (by intro e; cases e) (wnf_kTerm _) (kTerm_lt_M h.M) (fundBig_M n)
 
-/-- `Ω_c`（`c = 0` か後者）の始点 `Ω_{c-1}` -/
-theorem wnf_base_om {c : Tm} (h : WNF (.Om c)) : WNF (base (.Om c)) := by
-  simp only [base]
-  split
-  · exact WNF.zero
-  · have hp := wnf_pred h.om.1
-    unfold omOf
-    split
-    · exact hp
-    · rename_i hfix
-      show isNF (.Om (pred c)) = true
-      simp only [isNF, Bool.and_eq_true, Bool.not_eq_true']
-      exact ⟨hp, by simpa using hfix⟩
+theorem isTgt_of_omReg {c : Tm} (hs : omReg c) : IsTgt (.Om c) := by
+  rcases hs with rfl | hs
+  · exact Or.inl rfl
+  · exact Or.inr (Or.inl ⟨c, rfl, hs⟩)
 
-theorem base_om_lt {c : Tm} (h : WNF (.Om c)) (hs : omReg c) : Lt (base (.Om c)) (.Om c) := by
-  have hc := h.om.1
-  simp only [base]
-  split
-  · exact zero_lt (by intro e; cases e)
-  · rename_i hc0
-    have hsc : isSucc c = true := by
-      rcases hs with e | e
-      · exact absurd e hc0
-      · exact e
-    have hp := wnf_pred hc
-    have hpc : Lt (pred c) c := pred_lt hc hsc
-    unfold omOf
-    split
-    · exact lt_transY hp hc h hpc (lt_om_selfY h)
-    · exact lt_om_iffG.mpr hpc
+/-- `Ω_c`（`c = 0` か後者）の始点 `Ψ_{Ω_c}(0)` は標準形 -/
+theorem wnf_base_om {c : Tm} (h : WNF (.Om c)) (hs : omReg c) : WNF (base (.Om c)) :=
+  WNF.mk_psi ⟨isTgt_of_omReg hs, h, WNF.zero, (fun _ _ e => by cases e), inC_zero _ _⟩
+
+theorem base_om_lt (c : Tm) : Lt (base (.Om c)) (.Om c) := lt_psiOm_om_self c .zero
 
 theorem props_om_reg {c : Tm} (h : WNF (.Om c)) (hs : omReg c) : Props (.Om c) := by
   refine ⟨(fun hd => by rw [dom_om_reg hs] at hd; cases hd), fun σ hd => ?_⟩
   rw [dom_om_reg hs] at hd
   cases hd
-  exact bigProps_reg h rfl (by intro e; cases e) (wnf_base_om h) (base_om_lt h hs)
+  exact bigProps_reg h rfl (by intro e; cases e) (wnf_base_om h hs) (base_om_lt c)
     (fundBig_om_reg hs)
 
 /-- `Ξ_n(d)` の始点 `Ψ_{Ξ_n(d)}(d+1)` は `Ξ_n(d)` 未満（比較の規則だけで出る） -/
@@ -317,32 +297,5 @@ theorem bigProps_om {c σ : Tm} (h : WNF (.Om c)) (hs : ¬ omReg c) (hc : BigPro
 theorem props_om_lim {c : Tm} (h : WNF (.Om c)) (hs : ¬ omReg c) (hc : Props c) : Props (.Om c) :=
   ⟨fun hd => natProps_om h hs (hc.1 (by rwa [dom_om_lim hs] at hd)),
     fun σ hd => bigProps_om h hs (hc.2 σ (by rwa [dom_om_lim hs] at hd))⟩
-
-/-! ### 全ての標準形 -/
-
-/-- 崩壊の場合の仮定：`Ψ_π(X)` の列の性質（真の部分項の性質を使ってよい）と、`Ξ_n(d)` の列の始点の標準形 -/
-structure PsiProps : Prop where
-  psi : ∀ π X, WNF (.Psi π X) → (∀ u, u.size < (Tm.Psi π X).size → WNF u → Props u) →
-    Props (.Psi π X)
-  xiBase : ∀ n d, WNF (.Xi n d) → WNF (base (.Xi n d))
-
-/-- 崩壊の場合の仮定から、全ての標準形の列の性質 -/
-theorem props_all (hψ : PsiProps) : ∀ t : Tm, WNF t → Props t := by
-  intro t
-  induction t using size_induction with
-  | h t ih =>
-  intro ht
-  cases t with
-  | zero => exact ⟨(fun hd => by cases hd), (fun σ hd => by cases hd)⟩
-  | M n => exact props_M ht
-  | plus a b =>
-    obtain ⟨-, hb, -, -⟩ := ht.plus
-    exact props_plus ht (ih b (by simp only [Tm.size]; omega) hb)
-  | Om c =>
-    by_cases hs : omReg c
-    · exact props_om_reg ht hs
-    · exact props_om_lim ht hs (ih c (by simp only [Tm.size]; omega) ht.om.1)
-  | Xi n d => exact props_xi ht (hψ.xiBase n d ht)
-  | Psi π X => exact hψ.psi π X ht (fun u hu huF => ih u hu huF)
 
 end MahloOCF.FS

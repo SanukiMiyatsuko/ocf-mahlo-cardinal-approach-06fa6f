@@ -716,7 +716,7 @@ theorem lt_merge_left {A B : List Tm} (hA : NFL A) (hB : NFL B) (hne : A ≠ [])
   rw [length_merge]
   cases A with
   | nil => exact absurd rfl hne
-  | cons _ _ => simp
+  | cons _ _ => intro h; simp only [List.length_cons] at h; omega
 
 /-! #### 自然な和の大小 -/
 

@@ -41,10 +41,11 @@ def pred (a : Tm) : Tm := ofSummands (summands a).dropLast
 /-- `a + 1` -/
 def sc (a : Tm) : Tm := succT a
 
-/-- 正則項の列の始点：`Ω_0 ↦ 0`、`Ω_{c+1} ↦ Ω_c`、`M_n ↦ M_{n-1}`、`Ξ_n(d) ↦ Ψ_{Ξ_n(d)}(d+1)` -/
+/-- 正則項の列の始点：`Ω_c ↦ Ψ_{Ω_c}(0)`（`Ω_0` なら `1`、`Ω_{c+1}` なら `Ω_c·ω`）、`M_n ↦ M_{n-1}`、
+    `Ξ_n(d) ↦ Ψ_{Ξ_n(d)}(d+1)`。どれも、正則項の真の部分項で正則項未満のものより大きい -/
 def base (σ : Tm) : Tm :=
   match σ with
-  | Om c => if c = zero then zero else omOf (pred c)
+  | Om c => Psi (Om c) zero
   | M n => kTerm (n - 1)
   | Xi n d => Psi (Xi n d) (sc d)
   | _ => zero

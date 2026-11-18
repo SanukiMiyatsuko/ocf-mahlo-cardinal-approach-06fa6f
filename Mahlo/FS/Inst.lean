@@ -1,10 +1,15 @@
-import Mahlo.FS.Base
+import Mahlo.FS.PsiFam
 import Mahlo.FS.Order
 
 /-! 標準形の型 `NF` 上の基本列：`fund`・`dom` を `NF` に移し、FS の公理を示す。
 
-崩壊 `Ψ_π(X)` の列の性質（`PsiCase`）と Bachmann 性（`BachHyp`）を仮定として受け取る（`Ξ_n(d)` の列の始点が標準形であることは `wnf_base_xi` で示した）。それ以外の公理
-（0・後者・自然数・`ω` 型と正則項型の減少・単調・共終）は `props_all` から出る。 -/
+全ての標準形の列の性質（`Props`）と Bachmann 性（`BachHyp`）から FS の公理を組み立てる（`fsOfProps`）。
+列の性質は列の不変量（`inv_all`）から出る。崩壊 `Ψ_π(X)` の列の不変量のうち、`X = 0`・`Ω` への崩壊の後者
+（`PsiMul`）・極限 `X` の素の近似（`PsiLim`）・`Ξ_m(q)`（`q < M_m`）への崩壊の後者（`PsiXi`）・目標そのものへの
+対角化（`PsiDiag`）・外に足す型の塔（`PsiOut`）・`M_m` への対角化（`PsiK`・`PsiKO`）・`Ξ_m(q)` への崩壊の後者
+（族の閉包：`q < X'` は `XiSucc`、底 `X' = q` は `XiFloor`）・外に足す型で族の閉包を添字にする場合（`PsiFam`）で、
+全ての標準形の列の不変量が出る（`inv_of`）。残りの仮定は Bachmann 性だけ（`fsNF`）だが、今の基本列では
+Bachmann 性は成り立たない（反例は `BachCE.lean`）。 -/
 
 namespace MahloOCF.FS
 
@@ -43,11 +48,11 @@ theorem liftCof_big {c : Cof Tm} {h : ∀ σ, c = .big σ → WNF σ} {σ : NF} 
 
 section
 
-variable (hψ : PsiProps)
+variable (hψ : ∀ t, WNF t → Props t)
 include hψ
 
 theorem wnf_fund {t ξ : Tm} (ht : WNF t) (hξ : WNF ξ) : WNF (fund t ξ) := by
-  have hP := props_all hψ t ht
+  have hP := hψ t ht
   rw [fund_eq]
   split
   · exact WNF.zero
@@ -60,7 +65,7 @@ theorem wnf_fund {t ξ : Tm} (ht : WNF t) (hξ : WNF ξ) : WNF (fund t ξ) := by
     · exact hB.nf _ WNF.zero hB.pos
 
 theorem wnf_dom_big {t σ : Tm} (ht : WNF t) (hd : dom t = .big σ) : WNF σ :=
-  ((props_all hψ t ht).2 σ hd).σF
+  ((hψ t ht).2 σ hd).σF
 
 /-- 基本列（`NF` 上） -/
 def fundNF (a ξ : NF) : NF := ⟨fund a.1 ξ.1, wnf_fund hψ a.2 ξ.2⟩
@@ -106,8 +111,8 @@ theorem nf_le {a b : NF} : a ≤ b ↔ Le a.1 b.1 := by
 
 theorem nf_lt {a b : NF} : a < b ↔ Lt a.1 b.1 := Iff.rfl
 
-/-- `PsiProps` と Bachmann 性から、`NF` は基本列の公理を満たす -/
-@[reducible] def fsNF' (hψ : PsiProps) (hB : BachHyp) : FS NF where
+/-- 全ての標準形の列の性質と Bachmann 性から、`NF` は基本列の公理を満たす -/
+@[reducible] def fsOfProps (hψ : ∀ t, WNF t → Props t) (hB : BachHyp) : FS NF where
   fund := fundNF hψ
   dom := domNF hψ
   Z := ⟨.zero, rfl⟩
@@ -133,12 +138,12 @@ theorem nf_lt {a b : NF} : a < b ↔ Lt a.1 b.1 := Iff.rfl
     have hd := (domNF_omega hψ).mp h
     show Lt (fund a.1 (ofNatT n)) a.1
     rw [fund_omega hd]
-    exact ((props_all hψ a.1 a.2).1 hd).lt n
+    exact ((hψ a.1 a.2).1 hd).lt n
   omega_mono a n h := by
     have hd := (domNF_omega hψ).mp h
     show Lt (fund a.1 (ofNatT n)) (fund a.1 (ofNatT (n + 1)))
     rw [fund_omega hd, fund_omega hd]
-    exact ((props_all hψ a.1 a.2).1 hd).mono n
+    exact ((hψ a.1 a.2).1 hd).mono n
   omega_bachmann a b n h h1 h2 := by
     have hd := (domNF_omega hψ).mp h
     rw [nf_le]
@@ -148,7 +153,7 @@ theorem nf_lt {a b : NF} : a < b ↔ Lt a.1 b.1 := Iff.rfl
     exact hB a.1 b.1 n a.2 b.2 hd h1' h2
   omega_cof a x h hx := by
     have hd := (domNF_omega hψ).mp h
-    obtain ⟨n, hn⟩ := ((props_all hψ a.1 a.2).1 hd).cof x.1 x.2 hx
+    obtain ⟨n, hn⟩ := ((hψ a.1 a.2).1 hd).cof x.1 x.2 hx
     refine ⟨n, ?_⟩
     rw [nf_le]
     show Le x.1 (fund a.1 (ofNatT n))
@@ -158,17 +163,17 @@ theorem nf_lt {a b : NF} : a < b ↔ Lt a.1 b.1 := Iff.rfl
     have hd := (domNF_big hψ).mp h
     show Lt (fund a.1 ξ.1) a.1
     rw [fund_big hd hξ]
-    exact ((props_all hψ a.1 a.2).2 σ.1 hd).lt ξ.1 ξ.2 hξ
+    exact ((hψ a.1 a.2).2 σ.1 hd).lt ξ.1 ξ.2 hξ
   big_mono a σ ξ η h hξη hησ := by
     have hd := (domNF_big hψ).mp h
-    have hB' := (props_all hψ a.1 a.2).2 σ.1 hd
+    have hB' := (hψ a.1 a.2).2 σ.1 hd
     have hξσ : Lt ξ.1 σ.1 := lt_transY ξ.2 η.2 σ.2 hξη hησ
     show Lt (fund a.1 ξ.1) (fund a.1 η.1)
     rw [fund_big hd hξσ, fund_big hd hησ]
     exact hB'.mono ξ.1 η.1 ξ.2 η.2 hξη hησ
   big_cof a σ x h hx := by
     have hd := (domNF_big hψ).mp h
-    obtain ⟨ξ, hξ, hξσ, hle⟩ := ((props_all hψ a.1 a.2).2 σ.1 hd).cof x.1 x.2 hx
+    obtain ⟨ξ, hξ, hξσ, hle⟩ := ((hψ a.1 a.2).2 σ.1 hd).cof x.1 x.2 hx
     refine ⟨⟨ξ, hξ⟩, hξσ, ?_⟩
     rw [nf_le]
     show Le x.1 (fund a.1 ξ)
@@ -176,8 +181,14 @@ theorem nf_lt {a b : NF} : a < b ↔ Lt a.1 b.1 := Iff.rfl
     exact hle
 
 
-/-- 崩壊 `Ψ_π(X)` の列の性質と Bachmann 性があれば、`NF` は基本列の公理を満たす -/
-@[reducible] def fsNF (hψ : PsiCase) (hB : BachHyp) : FS NF := fsNF' (psiProps_of hψ) hB
+/-- 全ての標準形の列の不変量 -/
+theorem inv_of : ∀ t : Tm, WNF t → Inv t :=
+  inv_all (psiInv_of (psiRestInv_of (psiDiagInv_of psiDiagFam_proof psiDiagM_proof)
+    (psiXiSuccInv_of (psiXiSuccRest_of psiXiSuccFloor_proof))))
+
+/-- Bachmann 性があれば、`NF` は基本列の公理を満たす -/
+@[reducible] def fsNF (hB : BachHyp) : FS NF :=
+  fsOfProps (fun t ht => (inv_of t ht).props) hB
 
 end MahloOCF.FS
 
@@ -186,5 +197,5 @@ end MahloOCF.FS
 /-- info: 'MahloOCF.FS.fsNF' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in #print axioms MahloOCF.FS.fsNF
 
-/-- info: 'MahloOCF.FS.props_all' depends on axioms: [propext, Quot.sound] -/
-#guard_msgs in #print axioms MahloOCF.FS.props_all
+/-- info: 'MahloOCF.FS.inv_of' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in #print axioms MahloOCF.FS.inv_of

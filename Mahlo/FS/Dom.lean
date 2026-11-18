@@ -29,7 +29,7 @@ def omReg (c : Tm) : Prop := c = zero ∨ isSucc c = true
 instance (c : Tm) : Decidable (omReg c) := inferInstanceAs (Decidable (c = zero ∨ isSucc c = true))
 
 theorem info_seq_om (c : Tm) :
-    (info (Om c)).seq = if omReg c then .reg (Om c) (base (Om c)) else .om (info c).seq := by
+    (info (Om c)).seq = if omReg c then .reg (Om c) (base (Om c)) [] else .om (info c).seq := by
   by_cases h : omReg c
   · rw [if_pos h]; simp only [info]; rw [if_pos (show c = zero ∨ isSucc c = true from h)]
   · rw [if_neg h]; simp only [info]; rw [if_neg (show ¬(c = zero ∨ isSucc c = true) from h)]
@@ -166,7 +166,7 @@ open Tm
 
 /-- 崩壊の列の記述の形（`none`・`one`・`mul`・`tower`・`app`、一つずらした `app`） -/
 def SeqD.isC : SeqD → Bool
-  | .none | .one | .mul _ _ | .tower _ | .app _ _ _ _ _ _ _ => true
+  | .none | .one | .mul _ _ | .tower _ | .app _ _ _ _ _ _ _ | .iapp _ _ _ _ _ _ => true
   | .shift (.app _ _ _ _ _ _ _) => true
   | _ => false
 
@@ -177,10 +177,16 @@ theorem SeqD.app_dom_ne (τ : Tm) (g : Gen) (pre : List Tm) (R : Tm) (r : SeqD) 
   · split <;> simp
   · simp
 
+theorem SeqD.iapp_dom_ne (g : Gen) (pre : List Tm) (r : SeqD) (P c : Tm) (s : SeqD) :
+    (SeqD.iapp g pre r P c s).dom ≠ .one ∧ (SeqD.iapp g pre r P c s).dom ≠ .zero := by
+  simp only [SeqD.dom]
+  split <;> simp
+
 /-- 崩壊の列の記述の共終数が後者なら、記述は `one` -/
 theorem SeqD.eq_one_of_dom {s : SeqD} (h : s.isC = true) (hd : s.dom = .one) : s = .one := by
   cases s with
   | app τ g pre R r P c => exact absurd hd (SeqD.app_dom_ne _ _ _ _ _ _ _).1
+  | iapp g pre r P c s => exact absurd hd (SeqD.iapp_dom_ne _ _ _ _ _ _).1
   | shift s =>
     cases s with
     | app τ g pre R r P c => exact absurd hd (SeqD.app_dom_ne τ g pre R r P c).1
@@ -190,6 +196,7 @@ theorem SeqD.eq_one_of_dom {s : SeqD} (h : s.isC = true) (hd : s.dom = .one) : s
 theorem SeqD.eq_none_of_dom {s : SeqD} (h : s.isC = true) (hd : s.dom = .zero) : s = .none := by
   cases s with
   | app τ g pre R r P c => exact absurd hd (SeqD.app_dom_ne _ _ _ _ _ _ _).2
+  | iapp g pre r P c s => exact absurd hd (SeqD.iapp_dom_ne _ _ _ _ _ _).2
   | shift s =>
     cases s with
     | app τ g pre R r P c => exact absurd hd (SeqD.app_dom_ne τ g pre R r P c).2
@@ -234,22 +241,43 @@ theorem mahloVK_isC (m : Nat) (q : Tm) (qs : DL) (ceil : Tm) (P : Option Tm) :
   all_goals first | exact (mkApp_isC (by assumption)).1 | rfl
 
 theorem famSeq_isC : ∀ (πf : Fam) (ceil : Tm) (P : Option Tm), (famSeq πf ceil P).isC = true
-  | .om, _, P => by unfold famSeq; cases P <;> rfl
+  | .om, _, _ => by unfold famSeq; rfl
   | .xi m q qs, ceil, P => by unfold famSeq; exact mahloVK_isC _ _ _ _ _
   | .none, _, _ => by unfold famSeq; rfl
 
-theorem insertAtL_isC (τ : Tm) (τf : Fam) (c p : Tm) (ys : DL) : (insertAtL τ τf c p ys).isC = true := by
-  unfold insertAtL
-  repeat' split
-  all_goals first | exact famSeq_isC _ _ _ | exact (mkApp_isC (by assumption)).1
+/-- `outFix` は `app` を `app` か `iapp` に替える -/
+theorem outFix_app (τ : Tm) (g : Gen) (pre : List Tm) (R : Tm) (r : SeqD) (P c : Tm) :
+    outFix (.app τ g pre R r P c) = .app τ g pre R r P c ∨
+      ∃ s, outFix (.app τ g pre R r P c) = .iapp g pre r P c s := by
+  simp only [outFix]
+  cases hd : r.dom with
+  | big σ =>
+    cases σ with
+    | Xi m e =>
+      dsimp only
+      split
+      · exact Or.inr ⟨_, rfl⟩
+      · exact Or.inl rfl
+    | _ => exact Or.inl rfl
+  | _ => exact Or.inl rfl
 
-theorem limitSeq_isC (τ : Tm) (τf : Fam) (c X : Tm) (xs : DL) : (limitSeq τ τf c X xs).isC = true := by
+theorem limitSeq_cases {τ ceil : Tm} {xs : DL} :
+    limitSeq τ ceil xs = .none ∨
+      ∃ c', limitSeq τ ceil xs = .app ceil (.psi τ) (preT xs) (lastT xs) (lastS xs) zero c' ∨
+        ∃ s, limitSeq τ ceil xs = .iapp (.psi τ) (preT xs) (lastS xs) zero c' s := by
   unfold limitSeq
-  dsimp only
-  repeat' split
-  all_goals first
-    | exact insertAtL_isC _ _ _ _ _
-    | exact getD_isC (fun s hs => (mkApp_isC hs).1)
+  cases h : mkApp ceil (.psi τ) (preT xs) (lastT xs) (lastS xs) zero zero with
+  | none => exact Or.inl rfl
+  | some s =>
+    obtain ⟨c', rfl⟩ := mkApp_eq_some h
+    refine Or.inr ⟨c', ?_⟩
+    simp only [Option.map_some, Option.getD_some]
+    rcases outFix_app ceil (.psi τ) (preT xs) (lastT xs) (lastS xs) zero c' with e | ⟨s, e⟩
+    · exact Or.inl e
+    · exact Or.inr ⟨s, e⟩
+
+theorem limitSeq_isC (τ : Tm) (c : Tm) (xs : DL) : (limitSeq τ c xs).isC = true := by
+  rcases limitSeq_cases (τ := τ) (ceil := c) (xs := xs) with e | ⟨c', e | ⟨s, e⟩⟩ <;> rw [e] <;> rfl
 
 theorem cseq_isC (π : Tm) (πf : Fam) (X : Tm) (xs : DL) : (cseq π πf X xs).isC = true := by
   unfold cseq
@@ -257,7 +285,7 @@ theorem cseq_isC (π : Tm) (πf : Fam) (X : Tm) (xs : DL) : (cseq π πf X xs).i
   all_goals first
     | rfl
     | exact famSeq_isC _ _ _
-    | exact limitSeq_isC _ _ _ _ _
+    | exact limitSeq_isC _ _ _
 
 theorem cs_isC (π X : Tm) : (cs π X).isC = true := cseq_isC _ _ _ _
 
@@ -376,41 +404,19 @@ theorem mahloVK_ne_none (m : Nat) (q : Tm) (qs : DL) (ceil : Tm) (P : Option Tm)
   repeat' split
   all_goals first | (apply mkApp_ne_none; assumption) | simp
 
-theorem famSeq_some_ne_none (πf : Fam) (hf : πf ≠ .none) (ceil p : Tm) : famSeq πf ceil (some p) ≠ .none := by
-  cases πf with
-  | om => unfold famSeq; simp
-  | xi m q qs => unfold famSeq; exact mahloVK_ne_none _ _ _ _ _
-  | none => exact absurd rfl hf
-
-theorem insertAtL_ne_none {τ : Tm} {τf : Fam} (hf : τf ≠ .none) (ceil p : Tm) (ys : DL) :
-    insertAtL τ τf ceil p ys ≠ .none := by
-  unfold insertAtL
-  repeat' split
-  all_goals first | exact famSeq_some_ne_none _ hf _ _ | (apply mkApp_ne_none; assumption) | simp
-
-theorem limitSeq_ne_none {τ : Tm} {τf : Fam} (hf : τf ≠ .none) {ceil X : Tm} {xs : DL}
+theorem limitSeq_ne_none {τ : Tm} {ceil : Tm} {xs : DL}
     (hplain : ∀ r, mkApp ceil (.psi τ) (preT xs) (lastT xs) r zero zero ≠ none) :
-    limitSeq τ τf ceil X xs ≠ .none := by
-  have key : ∀ r, (mkApp ceil (.psi τ) (preT xs) (lastT xs) r zero zero).getD .none ≠ .none := by
-    intro r
-    obtain ⟨s, hs⟩ := Option.ne_none_iff_exists'.mp (hplain r)
-    rw [hs, Option.getD_some]
-    exact mkApp_ne_none hs
+    limitSeq τ ceil xs ≠ .none := by
   unfold limitSeq
-  dsimp only
-  repeat' split
-  all_goals first | exact key _ | exact insertAtL_ne_none hf _ _ _ | simp
-
-theorem info_fam_ne_none {π : Tm} (h : IsTgt π) : (info π).fam ≠ .none := by
-  rcases h with rfl | ⟨c, rfl, -⟩ | ⟨n, p, rfl⟩
-  · rw [info_fam_om]; simp
-  · rw [info_fam_om]; simp
-  · rw [info_fam_xi]; simp
+  obtain ⟨s, hs⟩ := Option.ne_none_iff_exists'.mp (hplain (lastS xs))
+  rw [hs, Option.map_some, Option.getD_some]
+  obtain ⟨c', rfl⟩ := mkApp_eq_some hs
+  rcases outFix_app ceil (.psi τ) (preT xs) (lastT xs) (lastS xs) zero c' with e | ⟨s, e⟩ <;>
+    rw [e] <;> intro h <;> cases h
 
 /-- 標準形の崩壊 `Ψ_π(X)` の列の記述は空でない -/
 theorem cs_ne_none {π X : Tm} (h : WNF (Psi π X)) : cs π X ≠ .none := by
   have hP := h.psi
-  have hf := info_fam_ne_none hP.tgt
   unfold cs cseq
   split
   · rename_i hX
@@ -423,13 +429,15 @@ theorem cs_ne_none {π X : Tm} (h : WNF (Psi π X)) : cs π X ≠ .none := by
   · rename_i hX0
     split
     · split
-      · split <;> simp
+      · split
+        · rw [info_fam_xi]; unfold famSeq; exact mahloVK_ne_none _ _ _ _ _
+        · simp
       · rename_i hv
         rcases hP.tgt with rfl | ⟨c, rfl, -⟩ | ⟨n, q, rfl⟩
         · simp [validR, argR?] at hv
         · simp [validR, argR?] at hv
         · rw [info_fam_xi]; unfold famSeq; exact mahloVK_ne_none _ _ _ _ _
-    · exact limitSeq_ne_none hf (mkApp_plain_ne_none hP.aF hX0 hP π)
+    · exact limitSeq_ne_none (mkApp_plain_ne_none hP.aF hX0 hP π)
 
 end MahloOCF.FS
 
@@ -452,7 +460,7 @@ theorem mahloVK_ne_one (m : Nat) (q : Tm) (qs : DL) (ceil : Tm) (P : Option Tm) 
   all_goals first | (apply mkApp_ne_one; assumption) | simp
 
 theorem famSeq_ne_one : ∀ (πf : Fam) (ceil : Tm) (P : Option Tm), famSeq πf ceil P ≠ .one
-  | .om, _, P => by unfold famSeq; cases P <;> simp
+  | .om, _, _ => by unfold famSeq; simp
   | .xi m q qs, ceil, P => by unfold famSeq; exact mahloVK_ne_one _ _ _ _ _
   | .none, _, _ => by unfold famSeq; simp
 
@@ -461,18 +469,9 @@ theorem getD_ne_one {o : Option SeqD} (h : ∀ s, o = some s → s ≠ .one) : o
   | none => simp
   | some s => exact h s rfl
 
-theorem insertAtL_ne_one (τ : Tm) (τf : Fam) (c p : Tm) (ys : DL) : insertAtL τ τf c p ys ≠ .one := by
-  unfold insertAtL
-  repeat' split
-  all_goals first | exact famSeq_ne_one _ _ _ | (apply mkApp_ne_one; assumption)
-
-theorem limitSeq_ne_one (τ : Tm) (τf : Fam) (c X : Tm) (xs : DL) : limitSeq τ τf c X xs ≠ .one := by
-  unfold limitSeq
-  dsimp only
-  repeat' split
-  all_goals first
-    | exact insertAtL_ne_one _ _ _ _ _
-    | exact getD_ne_one (fun s hs => mkApp_ne_one hs)
+theorem limitSeq_ne_one (τ : Tm) (c : Tm) (xs : DL) : limitSeq τ c xs ≠ .one := by
+  rcases limitSeq_cases (τ := τ) (ceil := c) (xs := xs) with e | ⟨c', e | ⟨s, e⟩⟩ <;> rw [e] <;>
+    intro h <;> cases h
 
 /-- 崩壊の列の記述が後者になるのは `Ψ_{Ω_0}(0) = 1` だけ -/
 theorem cs_eq_one {π X : Tm} (h : cs π X = .one) : π = Om zero ∧ X = zero := by
@@ -487,9 +486,11 @@ theorem cs_eq_one {π X : Tm} (h : cs π X = .one) : π = Om zero ∧ X = zero :
     · cases h
   · split at h
     · split at h
-      · split at h <;> cases h
+      · split at h
+        · exact absurd h (famSeq_ne_one _ _ _)
+        · cases h
       · exact absurd h (famSeq_ne_one _ _ _)
-    · exact absurd h (limitSeq_ne_one _ _ _ _ _)
+    · exact absurd h (limitSeq_ne_one _ _ _)
 
 theorem dom_one_iff_psi {π X : Tm} : (cs π X).dom = .one ↔ π = Om zero ∧ X = zero := by
   constructor

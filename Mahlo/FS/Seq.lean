@@ -7,10 +7,10 @@ import Mahlo.FS.Class
 
 * 和は最後の加数で決まる。正則項 `σ` は `σ[ξ] = base σ ⊕ ξ`。`Ω_c`（`c` 極限）は `Ω_{c[ξ]+1}`。
 * 崩壊 `Ψ_π(X)`：
-  - `X = 0`：`Ψ_{Ω_0}(0) = 1`、`Ψ_{Ω_{c+1}}(0) = Ω_c·ω`（`Ω_c·(n+1)`）。
+  - `X = 0`：`Ψ_{Ω_0}(0) = 1`、`Ψ_{Ω_{c+1}}(0) = Ω_c·ω`（`Ω_c·(n+2)`）。
   - 後者 `X = X' + 1`：`π = Ω_c` なら `Ψ_π(X')·(n+1)`。`π = Ξ_m(d)` なら、`d < X'` で `Ψ_π(X')` の上の
     `Ω` の塔、`X' = d`（底）なら目標の族の閉包（`famSeq`：`Ξ_m(ξ)`（`ξ < d`）の閉包）。
-  - 極限 `X`：最後の加数の近似。前線の最大の節点を種とし、近似が種を越えなければ種を挿入する（`limitSeq`）。
+  - 極限 `X`：最後の加数の近似（`limitSeq`）。
 * `app τ g pre R r P c`：`g(pre ⊕ ((c ⊕ R[ν]) # P))`。`R` の共終数が `τ` 以上の正則項 `σ` なら対角化
   （添字 `gam`）。
 
@@ -41,8 +41,8 @@ inductive SeqD where
   | none
   /-- 後者 -/
   | one
-  /-- 正則項：共終数 `σ`、`[ξ] = b ⊕ ξ` -/
-  | reg (σ b : Tm)
+  /-- 正則項：共終数 `σ`、`[ξ] = b ⊕ ξ`。`σ = Ξ_m(q)` なら `qs` は `q` の加数とその列の記述 -/
+  | reg (σ b : Tm) (qs : List (Tm × SeqD))
   /-- `a + s` -/
   | add (a : Tm) (s : SeqD)
   /-- `Ω_c`（`c` 極限）：`[ξ] = Ω_{c[ξ]+1}` -/
@@ -55,6 +55,9 @@ inductive SeqD where
   | app (τ : Tm) (g : Gen) (pre : List Tm) (R : Tm) (r : SeqD) (P c : Tm)
   /-- 列を一つずらす（`[n] = s[n+1]`） -/
   | shift (s : SeqD)
+  /-- 添字の列 `s` による対角化：`[ν] = g(pre ⊕ ((c ⊕ R[s[ν]]) # P))`、`r` は `R` の列の記述。
+      共終数は `s` の共終数（`ω` か正則項） -/
+  | iapp (g : Gen) (pre : List Tm) (r : SeqD) (P c : Tm) (s : SeqD)
   deriving Inhabited
 
 /-- 加数とその列の記述の並び -/
@@ -124,15 +127,6 @@ def maxXiClosed (m : Nat) (ub : Tm) : Tm → Option Tm := maxCl (closedPt m) ub
 /-- `M_m` の塔の始点：調整 `c`・種 `P` の中の `Ξ_m` で閉じた点の最大のもの -/
 def kStart (m : Nat) (c P : Tm) : Tm := (maxOpt (maxXiClosed m c c) (maxXiClosed m P P)).getD zero
 
-/-- `σ` への崩壊の塔（上端 `T`）で閉じた点：`Ψ_σ(w)`（`w ≥ T`） -/
-def closedS (σ T : Tm) : Tm → Bool
-  | Psi ρ w => ρ == σ && leB T w
-  | _ => false
-
-/-- 種を外に足す型の塔の始点：調整 `c`・種 `P` の中の閉じた点の最大のもの -/
-def sStart (σ T c P : Tm) : Tm :=
-  (maxOpt (maxCl (closedS σ T) c c) (maxCl (closedS σ T) P P)).getD zero
-
 /-- 目標 `τ` の前線の中の、`cl` を満たす点の最大のもの -/
 def frCl (cl : Tm → Bool) (τ : Tm) : Tm :=
   (((frB τ τ).map (fun e => maxCl cl e e)).foldr maxOpt none).getD zero
@@ -171,22 +165,27 @@ def SeqD.dom : SeqD → Cof Tm
   | .none => .zero
   | .shift s => s.dom
   | .one => .one
-  | .reg σ _ => .big σ
+  | .reg σ _ _ => .big σ
   | .add _ s => s.dom
   | .om s => s.dom
   | .app τ _ _ _ r _ _ =>
     match r.dom with
     | .big σ => if ltB σ τ then .big σ else .omega
     | _ => .omega
+  | .iapp _ _ _ _ _ s =>
+    match s.dom with
+    | .big σ => .big σ
+    | _ => .omega
   | _ => .omega
 
 /-- 列の記述の、添字 `ξ`（正則項未満）の項 -/
 def SeqD.big : SeqD → Tm → Tm
   | .shift s, ξ => s.big ξ
-  | .reg _ b, ξ => oadd b ξ
+  | .reg _ b _, ξ => oadd b ξ
   | .add a s, ξ => oadd a (s.big ξ)
   | .om s, ξ => Om (sc (s.big ξ))
   | .app _ g pre _ r P c, ξ => g.ap (combine g pre c P (r.big ξ))
+  | .iapp g pre r P c s, ξ => g.ap (combine g pre c P (r.big (s.big ξ)))
   | _, _ => zero
 
 /-- 対角化の近似の引数 -/
@@ -196,14 +195,14 @@ def argOf (τ σ : Tm) (g : Gen) (pre : List Tm) (R : Tm) (r : SeqD) (c P γ : T
   else combine g pre c (if seedOut g && γ == zero then P else zero) (r.big γ)
 
 /-- 対角化の添字。正準な塔（`canonK`・種を外に足す型）では種によらない塔、
-    そうでなければ種を始点に入れ、値の帰還（`col` と値の大きい方）で進める -/
+    そうでなければ（目標そのものへの対角化・`Ξ` の族の閉包）種を始点に入れ、近似の値そのもので進める -/
 def gam (τ σ : Tm) (g : Gen) (pre : List Tm) (R : Tm) (r : SeqD) (c P : Tm) : Nat → Tm
   | 0 =>
     if canonK σ g pre R then (match σ with | M m => kStart m c P | _ => zero)
     else if outsideMode τ σ g pre R then
       (match σ with
        | M _ => zero
-       | _ => if seedOut g then sStart σ (oadd (ofSummands pre) R) c P else zero)
+       | _ => if validR σ (oadd (ofSummands pre) (r.big zero)) then zero else base σ)
     else (match σ with | M _ => P | _ => if seedOut g then zero else P)
   | k + 1 =>
     let γ := gam τ σ g pre R r c P k
@@ -212,10 +211,7 @@ def gam (τ σ : Tm) (g : Gen) (pre : List Tm) (R : Tm) (r : SeqD) (c P : Tm) : 
       match σ with
       | M _ => col σ (argOf τ σ g pre R r c P γ) k
       | _ => col σ (oadd (ofSummands pre) (r.big γ)) k
-    else
-      let A := argOf τ σ g pre R r c P γ
-      let cl := col σ A k
-      if ltB cl (g.ap A) && ltB (g.ap A) σ then g.ap A else cl
+    else g.ap (argOf τ σ g pre R r c P γ)
 
 /-- 列の記述の `n` 番目 -/
 def SeqD.nat : SeqD → Nat → Tm
@@ -228,6 +224,7 @@ def SeqD.nat : SeqD → Nat → Tm
     match r.dom with
     | .big σ => if ltB σ τ then zero else g.ap (argOf τ σ g pre R r c P (gam τ σ g pre R r c P n))
     | _ => g.ap (combine g pre c P (r.nat n))
+  | .iapp g pre r P c s, n => g.ap (combine g pre c P (r.big (s.nat n)))
   | _, _ => zero
 
 /-- 列の 0 番目 -/
@@ -245,15 +242,11 @@ def adjC (τ : Tm) (approx : Tm → Tm) (rt : Tm) : Tm :=
   | some c => c
   | none => sc rt
 
-/-- 対角化の調整：目標の前線の中の、塔で閉じた点の最大のもの -/
+/-- 対角化の調整：`M_m` の正準な塔では、目標の前線の中の `Ξ_m` で閉じた点の最大のもの -/
 def kAdj (τ ceil : Tm) (g : Gen) (pre : List Tm) (R : Tm) (r : SeqD) : Tm :=
   match r.dom with
   | .big (M m) =>
     if !ltB (M m) ceil && canonK (M m) g pre R then frCl (closedPt m) τ else zero
-  | .big σ =>
-    if !ltB σ ceil && outsideMode ceil σ g pre R then
-      frCl (closedS σ (oadd (ofSummands pre) R)) τ
-    else zero
   | _ => zero
 
 /-- `app` を作る（引数の下限で塞がるなら `none`） -/
@@ -300,51 +293,63 @@ def mahloVK (m : Nat) (q : Tm) (qs : DL) (ceil : Tm) (P : Option Tm) : SeqD :=
           | none => .tower p
         | none => .tower p
 
-/-- 目標の族の、種 `P` より上の閉包（値は `ceil` 未満） -/
+/-- 目標の族（`Ξ_m(q)` のときだけ）の、種 `P` より上の閉包（値は `ceil` 未満） -/
 def famSeq (πf : Fam) (ceil : Tm) (P : Option Tm) : SeqD :=
   match πf with
-  | .om =>
-    match P with
-    | some p => .mul p 2
-    | none => .none
   | .xi m q qs => mahloVK m q qs ceil P
-  | .none => .none
+  | _ => .none
 
-/-- 極限の引数（加数 `ys`）への種 `p` の挿入 -/
-def insertAtL (τ : Tm) (τf : Fam) (ceil p : Tm) (ys : DL) : SeqD :=
-  match splitGtD p ys with
-  | some (pre, R, r) =>
-    match mkApp ceil (.psi τ) pre R r p zero with
-    | some s => s
-    | none => famSeq τf ceil (some p)
-  | none => famSeq τf ceil (some p)
+/-- 列の記述の共終数（正則項）の族：`R` の列の記述は、共終数 `σ` の記述 `reg σ _ qs` を中に持つ -/
+def SeqD.famOf : SeqD → Fam
+  | .reg σ _ qs =>
+    match σ with
+    | Xi m q => .xi m q qs
+    | Om _ => .om
+    | _ => .none
+  | .add _ s => s.famOf
+  | .om s => s.famOf
+  | .app _ _ _ _ r _ _ => r.famOf
+  | .shift s => s.famOf
+  | .iapp _ _ _ _ _ s => s.famOf
+  | _ => .none
 
-/-- 極限 `X`（加数 `xs`）の崩壊の列 -/
-def limitSeq (τ : Tm) (τf : Fam) (ceil X : Tm) (xs : DL) : SeqD :=
-  let plain := (mkApp ceil (.psi τ) (preT xs) (lastT xs) (lastS xs) zero zero).getD .none
-  match maxL (frB τ X) with
-  | none => plain
-  | some p =>
-    if ltB p plain.first then plain
-    else if plain.first = p then
-      (mkApp ceil (.psi τ) (preT xs) (lastT xs) (.shift (lastS xs)) zero zero).getD .none
-    else insertAtL τ τf ceil p xs
+/-- 外に足す型の対角化（`σ = Ξ_m(e)` への崩壊の塔）で `Ψ_σ(X) < Ψ_τ(X)` のとき：引数が `X` 未満の
+    `Ψ_σ(·)` は全て `Ψ_τ(X)` 未満で塔は `Ψ_τ(X)` を越えないので、添字は目標 `τ` の前線の最大元の上の
+    `σ` の族の閉包（`famSeq`）にする -/
+def outFix : SeqD → SeqD
+  | .app τ g pre R r P c =>
+    match r.dom with
+    | .big σ =>
+      match σ with
+      | Xi _ _ =>
+        if !ltB σ τ && outsideMode τ σ g pre R &&
+            ltB (Psi σ (oadd (ofSummands pre) R)) (Psi τ (oadd (ofSummands pre) R)) then
+          .iapp g pre r P c (famSeq r.famOf σ (maxL (frB τ τ)))
+        else .app τ g pre R r P c
+      | _ => .app τ g pre R r P c
+    | _ => .app τ g pre R r P c
+  | s => s
+
+/-- 極限 `X`（加数 `xs`）の崩壊の列：最後の加数の近似。`X` の真の部分項で `Ψ_τ(X)` 未満のものは
+    0 番目の近似で既に越えている（隙間）ので、種の挿入は要らない -/
+def limitSeq (τ : Tm) (ceil : Tm) (xs : DL) : SeqD :=
+  ((mkApp ceil (.psi τ) (preT xs) (lastT xs) (lastS xs) zero zero).map outFix).getD .none
 
 /-- 崩壊 `Ψ_π(X)` の列（`πf` は `π` の族、`xs` は `X` の加数） -/
 def cseq (π : Tm) (πf : Fam) (X : Tm) (xs : DL) : SeqD :=
   if X = zero then
     match π with
-    | Om c => if c = zero then .one else .mul (omOf (pred c)) 1
+    | Om c => if c = zero then .one else .mul (omOf (pred c)) 2
     | _ => .none
   else
     match (lastS xs).dom with
     | .one =>
       if validR π (pred X) then
         match π with
-        | Xi _ _ => .tower (Psi π (pred X))
-        | _ => .mul (Psi π (pred X)) 1
+        | Xi _ _ => famSeq πf π (some (Psi π (pred X)))
+        | _ => .mul (Psi π (pred X)) 2
       else famSeq πf π (maxL (frB π π))
-    | _ => limitSeq π πf π X xs
+    | _ => limitSeq π π xs
 
 /-! ### 項の解析 -/
 
@@ -358,7 +363,7 @@ structure Info where
 def info : Tm → Info
   | zero => ⟨.none, [], .none⟩
   | M n =>
-    let s : SeqD := .reg (M n) (base (M n))
+    let s : SeqD := .reg (M n) (base (M n)) []
     ⟨s, [(M n, s)], .none⟩
   | plus a b =>
     let ia := info a
@@ -366,11 +371,11 @@ def info : Tm → Info
     ⟨.add a ib.seq, (a, ia.seq) :: ib.sums, .none⟩
   | Om c =>
     let s : SeqD :=
-      if c = zero ∨ isSucc c = true then .reg (Om c) (base (Om c)) else .om (info c).seq
+      if c = zero ∨ isSucc c = true then .reg (Om c) (base (Om c)) [] else .om (info c).seq
     ⟨s, [(Om c, s)], .om⟩
   | Xi m q =>
     let iq := info q
-    let s : SeqD := .reg (Xi m q) (base (Xi m q))
+    let s : SeqD := .reg (Xi m q) (base (Xi m q)) iq.sums
     ⟨s, [(Xi m q, s)], .xi m q iq.sums⟩
   | Psi π X =>
     let iπ := info π
