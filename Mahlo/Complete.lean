@@ -5,7 +5,8 @@ import Mahlo.Succ
 * `nfValue_iff_C`：`x` が標準形の値 ⟺ `x ∈ C(Λ, 0)`（崩壊関数の閉包）。標準形は一意（`val_inj_of_isNF`）。
 * `settingOfMahlo`：弱 Mahlo 基数の列（`∀ n, EnumDef WeaklyMahlo (ordNat n)`）から `Setting` を作る。
 * `wellFounded_lt`：弱 Mahlo 基数の列があれば、標準形の上の `MahloOCF.lt` は整礎。
-* `lt_isStrictTotalOrder`：標準形の上の `MahloOCF.lt` は狭義全順序。 -/
+* `lt_strictTotal`：弱 Mahlo 基数の列があれば、標準形の上の `MahloOCF.lt` は狭義全順序。
+* `cmp_eq_iff`：弱 Mahlo 基数の列があれば、標準形の上で `cmp a b = .eq ↔ a = b`。 -/
 
 namespace OCF.Mahlo
 

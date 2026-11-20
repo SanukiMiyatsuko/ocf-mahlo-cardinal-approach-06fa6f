@@ -1,8 +1,10 @@
 /-! 基本列の公理。
 
 `Cof` は共終数の型：`0`、後者、`ω`、正則項 `σ`（添字は `σ` 未満の元）。`big` の場合の公理は、基本列が元の
-項より小さいこと（`big_lt`）、添字について狭義単調であること（`big_mono`）、共終であること（`big_cof`）。
-`omega` の場合は、それに加えて Bachmann 性（`omega_bachmann`）を課す。 -/
+項より小さいこと（`big_lt`）、添字について狭義単調であること（`big_mono`）、共終であること（`big_cof`）、
+共終数が正則であること（`big_regular`：共終数の共終数は自分自身）。`omega` の場合は、それに加えて
+Bachmann 性（`omega_bachmann`）を課す。`Z` は最小元（`zero_least`。他の公理のもとで、共終数が正則項の列の
+添字の集合が空でないことと同値）。 -/
 
 class Well_Order (A : Type) [LT A] where
   lt_trans : ∀ a b c : A, a < b → b < c → a < c
@@ -36,6 +38,7 @@ class FS (A : Type) [DecidableEq A] [LT A] [DecidableLT A] [Well_Order A] where
   zero_dom : dom Z = .zero
   zero_unique : ∀ a, dom a = .zero → a = Z
   zero_fund : ∀ n, fund Z n = Z
+  zero_least : ∀ a : A, Z ≤ a
 
   succ_md : ∀ a n, dom a = .one → fund a n < a
   succ_cof : ∀ a n x, dom a = .one → x < a → x ≤ fund a n
@@ -49,3 +52,4 @@ class FS (A : Type) [DecidableEq A] [LT A] [DecidableLT A] [Well_Order A] where
   big_lt : ∀ a σ ξ, dom a = .big σ → ξ < σ → fund a ξ < a
   big_mono : ∀ a σ ξ η, dom a = .big σ → ξ < η → η < σ → fund a ξ < fund a η
   big_cof : ∀ a σ x, dom a = .big σ → x < a → ∃ ξ, ξ < σ ∧ x ≤ fund a ξ
+  big_regular : ∀ a σ, dom a = .big σ → dom σ = .big σ

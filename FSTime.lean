@@ -31,8 +31,8 @@ def main : IO Unit := do
   let ts : List (String × Tm) :=
     [("ε_0", Psi O0 O0), ("Ψ_Ω0(Ω_1)", Psi O0 (Om one)), ("Ψ_Ω0(M_1)", Psi O0 M1),
      ("Ψ_Ω0(M_1^+)", Psi O0 (succM 1)),
-     ("Ψ_Ω0(Ψ_{Ξ1(M1+1)}(M1+2))", Psi O0 (Psi (X1 (oadd M1 one)) (oadd M1 (nat' 2)))),
-     ("Ψ_Ω0(Ψ_{Ξ1(0)}(M_1))", Psi O0 (Psi (X1 zero) M1))]
+     ("Ψ_Ω0(M_2+Ψ_{Ξ1(M1+1)}(M1+2))", Psi O0 (oadd (M 2) (Psi (X1 (oadd M1 one)) (oadd M1 (nat' 2))))),
+     ("Ψ_Ω0(M_2+Ψ_{Ξ1(0)}(M_1))", Psi O0 (oadd (M 2) (Psi (X1 zero) M1)))]
   for (name, t) in ts do
     IO.println s!"{name}: isNF = {isNFF t}"
     for n in [1, 2, 4, 8, 16, 32, 64, 128] do

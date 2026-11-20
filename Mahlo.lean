@@ -72,3 +72,4 @@ import Mahlo.FS.BachFloor
 import Mahlo.FS.BachDiagM
 import Mahlo.FS.BachA2
 import Mahlo.FS.Final
+import Mahlo.FS.NotNF

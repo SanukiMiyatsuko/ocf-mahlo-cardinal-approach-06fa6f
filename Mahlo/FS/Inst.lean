@@ -3,7 +3,8 @@ import Mahlo.FS.Order
 
 /-! 標準形の型 `NF` 上の基本列：`fund`・`dom` を `NF` に移し、FS の公理を示す。
 
-全ての標準形の列の性質（`Props`）と Bachmann 性（`BachHyp`）から FS の公理を組み立てる（`fsOfProps`）。
+全ての標準形の列の性質（`Props`）・共終数が正則項であること・Bachmann 性（`BachHyp`）から FS の公理を組み立てる
+（`fsOfProps`）。
 列の性質は列の不変量（`inv_all`）から出る。崩壊 `Ψ_π(X)` の列の不変量のうち、`X = 0`・`Ω` への崩壊の後者
 （`PsiMul`）・極限 `X` の素の近似（`PsiLim`）・`Ξ_m(q)`（`q < M_m`）への崩壊の後者（`PsiXi`）・目標そのものへの
 対角化（`PsiDiag`）・外に足す型の塔（`PsiOut`）・`M_m` への対角化（`PsiK`・`PsiKO`）・`Ξ_m(q)` への崩壊の後者
@@ -109,8 +110,17 @@ theorem nf_le {a b : NF} : a ≤ b ↔ Le a.1 b.1 := by
     · exact Or.inr (Subtype.ext h)
     · exact Or.inl h
 
-/-- 全ての標準形の列の性質と Bachmann 性から、`NF` は基本列の公理を満たす -/
-@[reducible] def fsOfProps (hψ : ∀ t, WNF t → Props t) (hB : BachHyp) : FS NF where
+/-- 正則項の共終数は自分自身（`Ω_0`・`Ω_{c+1}`・`M_n`・`Ξ_n(d)`） -/
+theorem dom_of_isRegY {σ : Tm} (h : IsRegY σ) : dom σ = .big σ := by
+  rcases h with rfl | ⟨c, rfl, hs⟩ | ⟨n, rfl⟩ | ⟨n, p, rfl⟩
+  · exact dom_om_reg (Or.inl rfl)
+  · exact dom_om_reg (Or.inr hs)
+  · exact dom_M n
+  · exact dom_xi n p
+
+/-- 全ての標準形の列の性質と Bachmann 性（と、共終数が正則項であること）から、`NF` は基本列の公理を満たす -/
+@[reducible] def fsOfProps (hψ : ∀ t, WNF t → Props t)
+    (hreg : ∀ t σ, WNF t → dom t = .big σ → IsRegY σ) (hB : BachHyp) : FS NF where
   fund := fundNF hψ
   dom := domNF hψ
   Z := ⟨.zero, rfl⟩
@@ -121,6 +131,7 @@ theorem nf_le {a b : NF} : a ≤ b ↔ Le a.1 b.1 := by
   zero_dom := (domNF_zero hψ).mpr rfl
   zero_unique a h := Subtype.ext ((dom_eq_zero_iff a.2).mp ((domNF_zero hψ).mp h))
   zero_fund n := rfl
+  zero_least a := nf_le.mpr (zero_le a.1)
   succ_md a n h := by
     have hd := (domNF_one hψ).mp h
     show Lt (fund a.1 n.1) a.1
@@ -177,16 +188,21 @@ theorem nf_le {a b : NF} : a ≤ b ↔ Le a.1 b.1 := by
     show Le x.1 (fund a.1 ξ)
     rw [fund_big hd hξσ]
     exact hle
-
+  big_regular a σ h :=
+    (domNF_big hψ).mpr (dom_of_isRegY (hreg a.1 σ.1 a.2 ((domNF_big hψ).mp h)))
 
 /-- 全ての標準形の列の不変量 -/
 theorem inv_of : ∀ t : Tm, WNF t → Inv t :=
   inv_all (psiInv_of (psiRestInv_of (psiDiagInv_of psiDiagFam_proof psiDiagM_proof)
     (psiXiSuccInv_of (psiXiSuccRest_of psiXiSuccFloor_proof))))
 
+/-- 共終数は正則項（不変量 `BigInv.σreg`） -/
+theorem isRegY_of_dom_big {t σ : Tm} (ht : WNF t) (h : dom t = .big σ) : IsRegY σ :=
+  ((inv_of t ht).2 σ h).σreg
+
 /-- Bachmann 性があれば、`NF` は基本列の公理を満たす -/
 @[reducible] def fsNFOf (hB : BachHyp) : FS NF :=
-  fsOfProps (fun t ht => (inv_of t ht).props) hB
+  fsOfProps (fun t ht => (inv_of t ht).props) (fun _ _ ht h => isRegY_of_dom_big ht h) hB
 
 end MahloOCF.FS
 
