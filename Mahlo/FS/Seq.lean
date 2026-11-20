@@ -92,7 +92,7 @@ def combine (g : Gen) (pre : List Tm) (c P x : Tm) : Tm :=
   | .psi _ => oadd (ofSummands pre) (nsum (oadd c x) P)
   | .xi _ => oadd (ofSummands pre) (nsum c (nsum P x))
 
-/-! ### 対角化の塔の始点（閉じた点） -/
+/-! ### 閉じた点 -/
 
 /-- `M_m` の族について閉じた点（それ未満の `ξ` の `Ξ_m(ξ)` は全てそれ未満）：`Ξ_m(w)`（`w ≥ M_m`）と、
     その族を目標に持つ崩壊 -/
@@ -120,12 +120,6 @@ def maxCl (cl : Tm → Bool) (ub : Tm) : Tm → Option Tm
     maxOpt (if cl (Psi p a) && leB (Psi p a) ub && selfVis (Psi p a) ub then some (Psi p a) else none)
       (maxOpt (maxCl cl ub p) (maxCl cl ub a))
   | _ => none
-
-/-- `t` の中の `Ξ_m` で閉じた節点の最大のもの -/
-def maxXiClosed (m : Nat) (ub : Tm) : Tm → Option Tm := maxCl (closedPt m) ub
-
-/-- `M_m` の塔の始点：調整 `c`・種 `P` の中の `Ξ_m` で閉じた点の最大のもの -/
-def kStart (m : Nat) (c P : Tm) : Tm := (maxOpt (maxXiClosed m c c) (maxXiClosed m P P)).getD zero
 
 /-- 目標 `τ` の前線の中の、`cl` を満たす点の最大のもの -/
 def frCl (cl : Tm → Bool) (τ : Tm) : Tm :=
@@ -188,21 +182,74 @@ def SeqD.big : SeqD → Tm → Tm
   | .iapp g pre r P c s, ξ => g.ap (combine g pre c P (r.big (s.big ξ)))
   | _, _ => zero
 
+/-- 塔 `γ_{k+1} = Ξ_m(pre ⊕ R[γ_k])`（`X = pre + R`）の障害の探索。`top` なら節点 `z` は `M_m` 未満で、塔の
+    閉包の分解（和・`Ω`・崩壊先・`Ξ_m(ζ)`（`ζ < X`）の引数の `M_m` についての前線）でたどり、分解できない
+    節点（`Ξ_m(ζ)`（`ζ ≥ X`））と、分解の先に自身以上の障害を持つ節点のうち最大のものを返す（`z` の中に、
+    それ以上の節点だけを通って見える）。`top` でなければ `Ξ_m(ζ)` の引数 `ζ` の中で `M_m` 未満の前線を探す -/
+def kNd (m : Nat) (X : Tm) (top : Bool) (z : Tm) : Option Tm :=
+  match top, z with
+  | true, plus a b => maxOpt (kNd m X true a) (kNd m X true b)
+  | true, Om e => kNd m X true e
+  | true, Psi ρ a =>
+    match kNd m X true ρ with
+    | none => none
+    | some u => some (if ltB u (Psi ρ a) then u else Psi ρ a)
+  | true, Xi j ζ =>
+    if j = m then
+      if ltB ζ X then
+        match kNd m X false ζ with
+        | none => none
+        | some u => some (if ltB u (Xi j ζ) then u else Xi j ζ)
+      else some (Xi j ζ)
+    else none
+  | true, _ => none
+  | false, plus a b => maxOpt (kNd m X false a) (kNd m X false b)
+  | false, Om e => kNd m X false e
+  | false, Xi j a => if ltB (Xi j a) (M m) then kNd m X true (Xi j a) else kNd m X false a
+  | false, Psi p a =>
+    if ltB (Psi p a) (M m) then kNd m X true (Psi p a)
+    else maxOpt (kNd m X false p) (kNd m X false a)
+  | false, _ => none
+termination_by 2 * z.size + (if top then 0 else 1)
+decreasing_by all_goals (simp only [Tm.size, ↓reduceIte]; omega)
+
+/-- 目標 `τ` の前線の、塔（`X = pre + R`）の障害の最大のもの -/
+def kNeed (m : Nat) (τ X : Tm) : Option Tm :=
+  ((frB τ τ).map (kNd m X true)).foldr maxOpt none
+
+/-- `M_m` の正準な塔の始点：目標の前線の障害の最大のもの `s`。`0` から始めた塔が 1 段目で `s` を越えるなら `0` -/
+def kTop (τ : Tm) (m : Nat) (pre : List Tm) (R : Tm) (r : SeqD) : Tm :=
+  match kNeed m τ (oadd (ofSummands pre) R) with
+  | none => zero
+  | some s => if ltB s (Xi m (oadd (ofSummands pre) (r.big zero))) then zero else s
+
 /-- 対角化の近似の引数 -/
 def argOf (τ σ : Tm) (g : Gen) (pre : List Tm) (R : Tm) (r : SeqD) (c P γ : Tm) : Tm :=
   if canonK σ g pre R then combine g pre c P (r.big γ)
   else if outsideMode τ σ g pre R then combine g pre c P (r.big γ)
   else combine g pre c (if seedOut g && γ == zero then P else zero) (r.big γ)
 
+/-- 目標 `τ` への崩壊の近似の有効性の調整（`mkApp` と同じ）：下限 `δ` が `pre` で始まる（`δ = pre ⊕ rt`）なら
+    `rt + 1`、そうでなければ `0` -/
+def adjOf (τ : Tm) (pre : List Tm) : Tm :=
+  match tailRaw (argR? τ) pre with
+  | none => zero
+  | some rt => sc rt
+
 /-- 対角化の添字。正準な塔（`canonK`・種を外に足す型）では種によらない塔、
-    そうでなければ（目標そのものへの対角化・`Ξ` の族の閉包）種を始点に入れ、近似の値そのもので進める -/
+    そうでなければ（目標そのものへの対角化・`Ξ` の族の閉包）種を始点に入れ、近似の値そのもので進める。
+    外に足す型（`σ` が `M` でない）の塔は、`σ` への崩壊の近似にも有効性の調整 `c_σ = adjOf σ pre` を前に置く
+    （`γ_{k+1} = Ψ_σ(pre ⊕ (c_σ ⊕ R[γ_k]))`、全て有効）。始点は `pre ⊕ R[0]` が `σ` の下限を越えれば `0`、
+    越えなければ 1 段進めた `Ψ_σ(pre ⊕ (c_σ ⊕ R[0]))`（添字は `0` か `σ` の底より大きい主要項） -/
 def gam (τ σ : Tm) (g : Gen) (pre : List Tm) (R : Tm) (r : SeqD) (c P : Tm) : Nat → Tm
   | 0 =>
-    if canonK σ g pre R then (match σ with | M m => kStart m c P | _ => zero)
+    if canonK σ g pre R then (match σ with | M m => kTop τ m pre R r | _ => zero)
     else if outsideMode τ σ g pre R then
       (match σ with
        | M _ => zero
-       | _ => if validR σ (oadd (ofSummands pre) (r.big zero)) then zero else base σ)
+       | _ =>
+         if validR σ (oadd (ofSummands pre) (r.big zero)) then zero
+         else col σ (oadd (ofSummands pre) (oadd (adjOf σ pre) (r.big zero))) 0)
     else (match σ with | M _ => P | _ => if seedOut g then zero else P)
   | k + 1 =>
     let γ := gam τ σ g pre R r c P k
@@ -210,7 +257,7 @@ def gam (τ σ : Tm) (g : Gen) (pre : List Tm) (R : Tm) (r : SeqD) (c P : Tm) : 
     else if outsideMode τ σ g pre R then
       match σ with
       | M _ => col σ (argOf τ σ g pre R r c P γ) k
-      | _ => col σ (oadd (ofSummands pre) (r.big γ)) k
+      | _ => col σ (oadd (ofSummands pre) (oadd (adjOf σ pre) (r.big γ))) k
     else g.ap (argOf τ σ g pre R r c P γ)
 
 /-- 列の記述の `n` 番目 -/
@@ -235,36 +282,16 @@ def SeqD.first (s : SeqD) : Tm :=
 
 /-! ### 崩壊の列の記述 -/
 
-/-- 有効性の調整：`rt` の、最初の近似を有効にする最短の先頭部分（なければ `rt + 1`） -/
-def adjC (τ : Tm) (approx : Tm → Tm) (rt : Tm) : Tm :=
-  match ((List.range ((summands rt).length + 1)).map (fun k => ofSummands ((summands rt).take k))).find?
-      (fun c => validR τ (approx c)) with
-  | some c => c
-  | none => sc rt
-
-/-- 対角化の調整：`M_m` の正準な塔では、目標の前線の中の `Ξ_m` で閉じた点の最大のもの -/
-def kAdj (τ ceil : Tm) (g : Gen) (pre : List Tm) (R : Tm) (r : SeqD) : Tm :=
-  match r.dom with
-  | .big (M m) =>
-    if !ltB (M m) ceil && canonK (M m) g pre R then frCl (closedPt m) τ else zero
-  | _ => zero
-
-/-- `app` を作る（引数の下限で塞がるなら `none`） -/
+/-- `app` を作る（引数の下限で塞がるなら `none`）。目標が `Ξ_m(δ)` で下限 `δ` が `pre` で始まる（`δ = pre ⊕ rt`）なら、
+    調整 `rt + 1` を前に置く（近似は `δ + 1 + R[ν]`、全て下限を越える） -/
 def mkApp (ceil : Tm) (g : Gen) (pre : List Tm) (R : Tm) (r : SeqD) (P c : Tm) : Option SeqD :=
   if P ≠ zero ∧ ltB P R = false then none
   else
     match g.tgt? with
     | some τ =>
-      let k := kAdj τ ceil g pre R r
       match tailRaw (argR? τ) pre with
-      | none => some (.app ceil g pre R r P k)
-      | some rt =>
-        if leB R rt then none
-        else
-          let x0 := r.first
-          let approx := fun c => combine g pre c P x0
-          if validR τ (approx k) then some (.app ceil g pre R r P k)
-          else some (.app ceil g pre R r P (oadd (adjC τ (fun c => approx (oadd c k)) rt) k))
+      | none => some (.app ceil g pre R r P zero)
+      | some rt => if leB R rt then none else some (.app ceil g pre R r P (sc rt))
     | _ => some (.app ceil g pre R r P c)
 
 /-- `Ξ_m(ξ)`（`ξ < q`）の閉包（`qs` は `q` の加数、種 `P`、値は `ceil` 未満） -/
@@ -313,9 +340,19 @@ def SeqD.famOf : SeqD → Fam
   | .iapp _ _ _ _ _ s => s.famOf
   | _ => .none
 
+/-- `σ` への崩壊 `Ψ_σ(·)` か -/
+def collOf (σ : Tm) : Tm → Bool
+  | Psi ρ _ => ρ == σ
+  | _ => false
+
+/-- 外に足す型の対角化の族の閉包の種：目標 `τ` の前線の中で見える `Ψ_σ(·)` の最大のもの（それが `σ` の始点
+    `Ψ_σ(e+1)` 未満・存在しないなら始点）。種は `σ` の族について閉じた点 `Ψ_σ(β)` なので、閉包の列は項
+    `Ψ_σ(β+1)` の基本列そのもので（区間は Bachmann 性を壊さない）、`τ` の前線は全てその列の下にある -/
+def a2Seed (σ τ : Tm) : Tm := maxO (some (frCl (collOf σ) τ)) (base σ)
+
 /-- 外に足す型の対角化（`σ = Ξ_m(e)` への崩壊の塔）で `Ψ_σ(X) < Ψ_τ(X)` のとき：引数が `X` 未満の
-    `Ψ_σ(·)` は全て `Ψ_τ(X)` 未満で塔は `Ψ_τ(X)` を越えないので、添字は目標 `τ` の前線の最大元の上の
-    `σ` の族の閉包（`famSeq`）にする -/
+    `Ψ_σ(·)` は全て `Ψ_τ(X)` 未満で塔は `Ψ_τ(X)` を越えないので、添字は目標 `τ` の前線の中の `σ` の族について
+    閉じた点（`a2Seed`）の上の `σ` の族の閉包（`famSeq`）にする -/
 def outFix : SeqD → SeqD
   | .app τ g pre R r P c =>
     match r.dom with
@@ -324,7 +361,7 @@ def outFix : SeqD → SeqD
       | Xi _ _ =>
         if !ltB σ τ && outsideMode τ σ g pre R &&
             ltB (Psi σ (oadd (ofSummands pre) R)) (Psi τ (oadd (ofSummands pre) R)) then
-          .iapp g pre r P c (famSeq r.famOf σ (maxL (frB τ τ)))
+          .iapp g pre r P c (famSeq r.famOf σ (some (a2Seed σ τ)))
         else .app τ g pre R r P c
       | _ => .app τ g pre R r P c
     | _ => .app τ g pre R r P c

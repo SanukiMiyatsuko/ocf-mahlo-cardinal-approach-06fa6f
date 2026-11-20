@@ -30,13 +30,6 @@ theorem validR_iff {π A : Tm} : validR π A = true ↔ ∀ δ, argR? π = some 
   | none => simp
   | some δ => simp [ltB_iff]
 
-theorem valid_mono {π A B : Tm} (hπ : WNF π) (hA : WNF A) (hB : WNF B)
-    (h : validR π A = true) (hAB : Le A B) : validR π B = true := by
-  rw [validR_iff] at h ⊢
-  intro δ hδ
-  obtain ⟨m, rfl⟩ := argR_some hδ
-  exact lt_of_lt_of_leY hπ.xi.2.1 hA hB (h δ hδ) hAB
-
 theorem combine_psi_zero {π c x : Tm} (pre : List Tm) (hc : WNF c) (hx : WNF x) :
     combine (.psi π) pre c .zero x = oadd (ofSummands pre) (oadd c x) := by
   show oadd (ofSummands pre) (nsum (oadd c x) .zero) = _
@@ -63,21 +56,6 @@ structure AdjOK (π : Tm) (pre : List Tm) (R x0 c : Tm) : Prop where
   cR : Lt c R
   cC : ∀ g d, WNF g → g ≠ .zero → Cut d → inC π g d = true → ¬ Lt π d → inC c g d = true
   valid : ∀ x, WNF x → Le x0 x → validR π (oadd (ofSummands pre) (oadd c x)) = true
-
-theorem adjC_spec (τ : Tm) (approx : Tm → Tm) (rt : Tm) :
-    adjC τ approx rt = sc rt ∨
-      ∃ k, adjC τ approx rt = ofSummands ((summands rt).take k) ∧
-        validR τ (approx (ofSummands ((summands rt).take k))) = true := by
-  unfold adjC
-  cases h : ((List.range ((summands rt).length + 1)).map
-      (fun k => ofSummands ((summands rt).take k))).find? (fun c => validR τ (approx c)) with
-  | none => exact Or.inl rfl
-  | some c =>
-    right
-    have h1 := List.find?_some h
-    have h2 := List.mem_of_find?_eq_some h
-    obtain ⟨k, -, rfl⟩ := List.mem_map.mp h2
-    exact ⟨k, rfl, h1⟩
 
 /-- 下限 `δ` が `pre` で始まるとき：`δ = pre ⊕ rt` -/
 theorem tailRaw_some {δ rt : Tm} {pre : List Tm} (hδ : WNF δ) (h : tailRaw (some δ) pre = some rt) :
@@ -124,10 +102,9 @@ theorem lt_pre_of_tail_none {X δ R : Tm} {pre : List Tm} (hX : WNF X)
 
 /-- 素の近似（対角化の調整なし）の `mkApp` と、調整 `c` の性質 -/
 theorem mkApp_plain {π X R : Tm} {pre : List Tm} {r : SeqD} (ht : WNF (.Psi π X))
-    (hsX : summands X = pre ++ [R]) (hns : ¬ isSucc X = true)
-    (hk : kAdj π π (.psi π) pre R r = .zero) (hx0 : WNF r.first) :
+    (hsX : summands X = pre ++ [R]) (hns : ¬ isSucc X = true) (x0 : Tm) :
     ∃ c, mkApp π (.psi π) pre R r zero zero = some (.app π (.psi π) pre R r zero c) ∧
-      AdjOK π pre R r.first c := by
+      AdjOK π pre R x0 c := by
   have hP := ht.psi
   have hX := hP.aF
   have hπ := hP.piF
@@ -138,11 +115,11 @@ theorem mkApp_plain {π X R : Tm} {pre : List Tm} {r : SeqD} (ht : WNF (.Psi π 
   have hR0 : R ≠ .zero := by intro e; rw [e] at hR; cases hR.2
   have hRns : ¬ isSucc R = true := by rw [← isSucc_of_last hsX hR.2]; exact hns
   have hX0 : X ≠ .zero := by intro e; rw [e] at hsX; simp [summands] at hsX
-  have adj0 : (∀ x, WNF x → Le r.first x →
-      validR π (oadd (ofSummands pre) (oadd .zero x)) = true) → AdjOK π pre R r.first .zero :=
+  have adj0 : (∀ x, WNF x → Le x0 x →
+      validR π (oadd (ofSummands pre) (oadd .zero x)) = true) → AdjOK π pre R x0 .zero :=
     fun hv => ⟨WNF.zero, zero_lt hR0, fun _ _ _ _ _ _ _ => inC_zero _ _, hv⟩
   unfold mkApp
-  simp only [ne_eq, not_true_eq_false, false_and, ↓reduceIte, Gen.tgt?, hk]
+  simp only [ne_eq, not_true_eq_false, false_and, ↓reduceIte, Gen.tgt?]
   split
   · -- `pre` は下限の先頭部分でない
     rename_i hrt
@@ -181,48 +158,18 @@ theorem mkApp_plain {π X R : Tm} {pre : List Tm} {r : SeqD} (ht : WNF (.Psi π 
         rcases inC_xi_iff.mp hC with h | ⟨h, -⟩
         · exact absurd h hlt
         · exact h
-      split
-      · rename_i hv
-        refine ⟨.zero, rfl, adj0 (fun x hx hle => ?_)⟩
-        rw [combine_psi_zero pre WNF.zero hx0] at hv
-        exact valid_mono hπ (wnf_oadd hPF (wnf_oadd WNF.zero hx0)) (wnf_oadd hPF (wnf_oadd WNF.zero hx)) hv
-          (oadd_le_oadd hPF (wnf_oadd WNF.zero hx0) (wnf_oadd WNF.zero hx)
-            (oadd_le_oadd WNF.zero hx0 hx hle))
-      · rcases adjC_spec (.Xi m δ)
-            (fun c => combine (.psi (.Xi m δ)) pre (oadd c zero) zero r.first) rt with e | ⟨k, e, hvk⟩
-        · -- `c = rt + 1`
-          have hsF := succT_WNF hrtF
-          refine ⟨sc rt, by rw [oadd_zero, e], ⟨hsF, succT_lt_of_not_succ hrtF hR.1 hRns hlt,
-            fun g d _ hg0 _ hπC hπd => inC_succT (inC_one hg0)
-              ((inC_iff_summandsW hrtF).mpr (hδsum g d (hδC g d hπC hπd))),
-            fun x hx _ => validR_iff.mpr (fun δ' hδ' => ?_)⟩⟩
-          cases hδ'
-          have h1 : Lt (oadd (ofSummands pre) rt) (oadd (ofSummands pre) (oadd (sc rt) x)) :=
-            oadd_lt_oadd hPF hrtF (wnf_oadd hsF hx)
-              (lt_of_lt_of_leY hrtF hsF (wnf_oadd hsF hx) (lt_succT rt) (le_oadd_leftW hsF hx))
-          rw [← hδe] at h1
-          exact h1
-        · -- `c` は `rt` の先頭部分
-          have hnt : NFL ((summands rt).take k) :=
-            nfl_append_left (m := (summands rt).drop k)
-              (by rw [List.take_append_drop]; exact nfl_summands hrtF)
-          have hcF := wnf_ofSummands hnt
-          have hcrt : Le (ofSummands ((summands rt).take k)) rt := by
-            refine le_of_ne_gtY hcF hrtF ?_
-            rw [cmp_eq, summands_ofSummands _ (nfl_principal hnt)]
-            exact cmpList_take_ne_gt _ k
-          refine ⟨ofSummands ((summands rt).take k), by rw [oadd_zero, e],
-            ⟨hcF, lt_of_le_of_ltY hcF hrtF hR.1 hcrt hlt,
-            fun g d _ _ _ hπC hπd => (inC_ofSummands _).mpr (fun s hs =>
-              hδsum g d (hδC g d hπC hπd) s (List.mem_of_mem_take hs)),
-            fun x hx hle => ?_⟩⟩
-          have hvk' : validR (.Xi m δ) (oadd (ofSummands pre)
-              (oadd (ofSummands ((summands rt).take k)) r.first)) = true := by
-            have := hvk
-            rw [oadd_zero, combine_psi_zero pre hcF hx0] at this
-            exact this
-          exact valid_mono hπ (wnf_oadd hPF (wnf_oadd hcF hx0)) (wnf_oadd hPF (wnf_oadd hcF hx)) hvk'
-            (oadd_le_oadd hPF (wnf_oadd hcF hx0) (wnf_oadd hcF hx) (oadd_le_oadd hcF hx0 hx hle))
+      -- `c = rt + 1`
+      have hsF := succT_WNF hrtF
+      refine ⟨sc rt, rfl, ⟨hsF, succT_lt_of_not_succ hrtF hR.1 hRns hlt,
+        fun g d _ hg0 _ hπC hπd => inC_succT (inC_one hg0)
+          ((inC_iff_summandsW hrtF).mpr (hδsum g d (hδC g d hπC hπd))),
+        fun x hx _ => validR_iff.mpr (fun δ' hδ' => ?_)⟩⟩
+      cases hδ'
+      have h1 : Lt (oadd (ofSummands pre) rt) (oadd (ofSummands pre) (oadd (sc rt) x)) :=
+        oadd_lt_oadd hPF hrtF (wnf_oadd hsF hx)
+          (lt_of_lt_of_leY hrtF hsF (wnf_oadd hsF hx) (lt_succT rt) (le_oadd_leftW hsF hx))
+      rw [← hδe] at h1
+      exact h1
 
 /-! ### 列の記述の形 -/
 
@@ -272,15 +219,6 @@ theorem cs_lim_app {π X R : Tm} {pre : List Tm} {c : Tm} (hX : WNF X) (hsX : su
       ltB (Psi σ (oadd (ofSummands pre) R)) (Psi π (oadd (ofSummands pre) R)) = false) :
     cs π X = .app π (.psi π) pre R (info R).seq zero c := by
   rw [cs_lim_eq hX hsX hns, hmk, Option.map_some, Option.getD_some, outFix_app_eq h]
-
-theorem kAdj_plain {π R : Tm} {pre : List Tm} {r : SeqD}
-    (h : r.dom = .omega ∨ ∃ σ, r.dom = .big σ ∧ ltB σ π = true) :
-    kAdj π π (.psi π) pre R r = .zero := by
-  unfold kAdj
-  rcases h with h | ⟨σ, h, hσ⟩
-  · rw [h]
-  · rw [h]
-    cases σ <;> simp [hσ]
 
 /-! ### 近似 `Ψ_π(pre ⊕ (c ⊕ x))` -/
 
@@ -512,8 +450,7 @@ theorem inv_psi_lim_nat {π X R : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
   have hr : (info R).seq.dom = .omega := hRd
   have hfirst : (info R).seq.first = fundNat R 0 := by
     unfold SeqD.first; rw [hr]; rfl
-  obtain ⟨c, hmk, hadj⟩ := mkApp_plain ht hsX hns (kAdj_plain (Or.inl hr))
-    (by rw [hfirst]; exact hRi.props.nf 0)
+  obtain ⟨c, hmk, hadj⟩ := mkApp_plain ht hsX hns ((info R).seq.first)
   rw [hfirst] at hadj
   have hcs : cs π X = .app π (.psi π) pre R (info R).seq zero c :=
     cs_lim_app hX hsX hns hmk (fun σ hd => by rw [hr] at hd; cases hd)
@@ -610,9 +547,7 @@ theorem inv_psi_lim_big {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
   have hr : (info R).seq.dom = .big σ := hRd
   have hfirst : (info R).seq.first = fundBig R .zero := by
     unfold SeqD.first; rw [hr]; rfl
-  have hx00 : WNF (fundBig R .zero) := hRP.nf .zero WNF.zero hσ0
-  obtain ⟨c, hmk, hadj⟩ := mkApp_plain ht hsX hns
-    (kAdj_plain (Or.inr ⟨σ, hr, ltB_iff.mpr hσπ⟩)) (by rw [hfirst]; exact hx00)
+  obtain ⟨c, hmk, hadj⟩ := mkApp_plain ht hsX hns ((info R).seq.first)
   rw [hfirst] at hadj
   have hcs : cs π X = .app π (.psi π) pre R (info R).seq zero c :=
     cs_lim_app hX hsX hns hmk (fun σ' hd => by rw [hr] at hd; cases hd; exact Or.inl (ltB_iff.mpr hσπ))

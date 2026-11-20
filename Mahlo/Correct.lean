@@ -438,6 +438,7 @@ theorem cmpPsi_step {pi a sg b : Tm}
 
 /-! ### `cmpP`：和でない項どうしの比較 -/
 
+omit [Setting] in
 theorem le3_of {a b c a' b' c' : Nat} (h1 : a ≤ a') (h2 : a = a' → b ≤ b')
     (h3 : a = a' → b = b' → c ≤ c') :
     Lt3 (a, b, c) (a', b', c') ∨ (a, b, c) = (a', b', c') := by
@@ -686,7 +687,7 @@ theorem cmp_step {a b : Tm} (hN : CmpOK.{u} (max a.size b.size, a.size + b.size,
 /-! ### 帰納法 -/
 
 theorem cmpOK_all (μ : Nat × Nat × Nat) : CmpOK.{u} μ :=
-  lt3_wf.induction μ (fun μ ih =>
+  lt3_wf.induction μ (fun _ ih =>
     ⟨fun _ _ hm ha hb => cmp_step (ih _ hm) ha hb,
      fun _ _ _ hm ha hg hd => inC_step (ih _ hm) ha hg hd,
      fun _ _ hm hσ hr ht => baseOf_step (ih _ hm) hσ hr ht⟩)

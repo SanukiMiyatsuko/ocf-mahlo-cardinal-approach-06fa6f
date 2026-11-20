@@ -8,8 +8,8 @@ import Mahlo.FS.Order
 （`PsiMul`）・極限 `X` の素の近似（`PsiLim`）・`Ξ_m(q)`（`q < M_m`）への崩壊の後者（`PsiXi`）・目標そのものへの
 対角化（`PsiDiag`）・外に足す型の塔（`PsiOut`）・`M_m` への対角化（`PsiK`・`PsiKO`）・`Ξ_m(q)` への崩壊の後者
 （族の閉包：`q < X'` は `XiSucc`、底 `X' = q` は `XiFloor`）・外に足す型で族の閉包を添字にする場合（`PsiFam`）で、
-全ての標準形の列の不変量が出る（`inv_of`）。残りの仮定は Bachmann 性だけ（`fsNF`）だが、今の基本列では
-Bachmann 性は成り立たない（反例は `BachCE.lean`）。 -/
+全ての標準形の列の不変量が出る（`inv_of`）。ここでは Bachmann 性を仮定として受け取る（`fsNFOf`）。Bachmann 性
+そのもの（`bachHyp_proof`）と仮定なしの `fsNF` は `Final.lean` にある。 -/
 
 namespace MahloOCF.FS
 
@@ -109,8 +109,6 @@ theorem nf_le {a b : NF} : a ≤ b ↔ Le a.1 b.1 := by
     · exact Or.inr (Subtype.ext h)
     · exact Or.inl h
 
-theorem nf_lt {a b : NF} : a < b ↔ Lt a.1 b.1 := Iff.rfl
-
 /-- 全ての標準形の列の性質と Bachmann 性から、`NF` は基本列の公理を満たす -/
 @[reducible] def fsOfProps (hψ : ∀ t, WNF t → Props t) (hB : BachHyp) : FS NF where
   fund := fundNF hψ
@@ -187,15 +185,15 @@ theorem inv_of : ∀ t : Tm, WNF t → Inv t :=
     (psiXiSuccInv_of (psiXiSuccRest_of psiXiSuccFloor_proof))))
 
 /-- Bachmann 性があれば、`NF` は基本列の公理を満たす -/
-@[reducible] def fsNF (hB : BachHyp) : FS NF :=
+@[reducible] def fsNFOf (hB : BachHyp) : FS NF :=
   fsOfProps (fun t ht => (inv_of t ht).props) hB
 
 end MahloOCF.FS
 
 /-! `#print axioms` の出力を固定する検査。 -/
 
-/-- info: 'MahloOCF.FS.fsNF' depends on axioms: [propext, Quot.sound] -/
-#guard_msgs in #print axioms MahloOCF.FS.fsNF
+/-- info: 'MahloOCF.FS.fsNFOf' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs in #print axioms MahloOCF.FS.fsNFOf
 
 /-- info: 'MahloOCF.FS.inv_of' depends on axioms: [propext, Quot.sound] -/
 #guard_msgs in #print axioms MahloOCF.FS.inv_of

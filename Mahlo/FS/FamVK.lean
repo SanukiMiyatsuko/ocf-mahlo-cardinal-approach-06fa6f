@@ -490,7 +490,7 @@ theorem famNat_app_split {m : Nat} {q P' R : Tm} {pre rest : List Tm} {P : Optio
 
 /-- 主要項 `p` より大きい主要項は後者でない（`1` でない） -/
 theorem not_succ_of_gt {p R : Tm} (hpF : WNF p) (hpp : isPrincipal p = true) (hRp : isPrincipal R = true)
-    (hRF : WNF R) (h : Lt p R) : ¬ isSucc R = true := by
+    (h : Lt p R) : ¬ isSucc R = true := by
   intro hs
   rw [isSucc_principal hRp] at hs
   have e : R = one := beq_iff_eq.mp hs
@@ -787,7 +787,7 @@ theorem famNat_vk_lim {m : Nat} {q : Tm} {P : Option Tm} (hρ : WNF (.Xi m q))
       simp only [hsg, mkApp_xi (ltB_iff.mpr hpR')] at hdom ⊢
       have G : XG m q p pre rest R' :=
         ⟨hρ, hsq', hpF, hpR', lt_transY hpF hρ hMF hpρ hρM, Or.inr hpp⟩
-      exact famNat_app_split G (hRinv R' hR'q) (not_succ_of_gt hpF hpp hR'W.2 hR'W.1 hpR') hdom hpρ
+      exact famNat_app_split G (hRinv R' hR'q) (not_succ_of_gt hpF hpp hR'W.2 hpR') hdom hpρ
         (fun g d _ _ _ _ _ hPC => hPC p rfl)
         (fun c h1 h2 h3 h4 => hSp (pre ++ [R']) rest (by rw [hsq']; simp) hrest' c h1 h2 h3 h4)
         (fun p' hp' => by cases hp'; exact Or.inl ⟨hpF, Or.inl rfl⟩)

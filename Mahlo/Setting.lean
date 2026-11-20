@@ -285,6 +285,7 @@ theorem Om_surj {ξ : Ordinal.{u}} (hξ : closure R ξ) (hξΛ : ξ < Λ) : ∃ 
     refine Exists.intro β (And.intro hβΛ (le_antisymm ?_ hβ.1))
     exact enum_le hξ (fun γ hγ => lt_of_not_le (hβ.2 γ hγ))
 
+omit [Setting] in
 /-- 正則基数 `ρ < Λ` は `Ω_0` 以上 -/
 theorem Om_zero_le_of_R {ρ : Ordinal.{u}} (hρ : R ρ) : Om 0 ≤ ρ :=
   enum_le (subset_closure hρ) (fun β hβ => absurd hβ (not_lt_zero β))

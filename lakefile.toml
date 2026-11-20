@@ -16,3 +16,7 @@ root = "FSTest"
 [[lean_exe]]
 name = "fstime"
 root = "FSTime"
+
+[[lean_exe]]
+name = "fsprobe"
+root = "FSProbe"

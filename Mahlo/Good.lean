@@ -33,18 +33,23 @@ theorem val_one : val.{u} one = succ 0 := Psi_Om_zero_zero
 
 /-! ### 構文についての補題 -/
 
+omit [Setting] in
 theorem summands_eq_nil {t : Tm} : summands t = [] ↔ t = .zero := by
   cases t <;> simp [summands]
 
+omit [Setting] in
 theorem ne_zero_of_isPrincipal {t : Tm} (h : isPrincipal t = true) : t ≠ .zero := by
   intro e; subst e; simp [isPrincipal] at h
 
+omit [Setting] in
 theorem ne_zero_of_isRegTerm {t : Tm} (h : isRegTerm t = true) : t ≠ .zero := by
   intro e; subst e; simp [isRegTerm] at h
 
+omit [Setting] in
 theorem isPrincipal_of_isRegTerm {t : Tm} (h : isRegTerm t = true) : isPrincipal t = true := by
   cases t <;> simp_all [isRegTerm, isPrincipal]
 
+omit [Setting] in
 theorem CNF.append_left {α : Ordinal.{u}} {l₁ l₂ : List Ordinal.{u}} (h : CNF α (l₁ ++ l₂)) :
     CNF (listSum l₁) l₁ :=
   ⟨fun p hp => h.1 p (List.mem_append_left l₂ hp), (List.pairwise_append.mp h.2.1).1, rfl⟩
@@ -337,6 +342,7 @@ theorem summands_good : ∀ (t : Tm), Good.{u} t →
     rw [hs]
     exact ⟨h, rfl⟩
 
+omit [Setting] in
 theorem summands_ofSummands : ∀ (l : List Tm), (∀ s, s ∈ l → isPrincipal s = true) →
     summands (ofSummands l) = l
   | [], _ => rfl
@@ -354,6 +360,7 @@ theorem val_ofSummands : ∀ (l : List Tm), val.{u} (ofSummands l) = listSum (l.
     show val a + val (ofSummands (b :: rest)) = listSum (val a :: (b :: rest).map val)
     rw [val_ofSummands (b :: rest), listSum_cons]
 
+omit [Setting] in
 theorem ofSummands_ne_zero : ∀ (l : List Tm), l ≠ [] → (∀ s, s ∈ l → isPrincipal s = true) →
     ofSummands l ≠ .zero
   | [], h, _ => absurd rfl h

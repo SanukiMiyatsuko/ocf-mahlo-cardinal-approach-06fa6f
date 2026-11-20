@@ -55,8 +55,32 @@ theorem bachHyp_of_ladder (hL : LadderHyp) : BachHyp := by
   obtain ⟨k, rfl⟩ : ∃ k, m = n + k := ⟨m - n, by omega⟩
   exact chain k b hb h1 hm
 
-/-- 梯子があれば `NF` は基本列の公理を満たす -/
-@[reducible] def fsNF_of_ladder (hL : LadderHyp) : FS NF := fsNF (bachHyp_of_ladder hL)
+/-! ### 0 番目 -/
+
+theorem wnf_f0 {t : Tm} (ht : WNF t) : WNF (fund t .zero) := wnf_fund props_all ht WNF.zero
+
+/-- `0` でなければ `t[0] < t` -/
+theorem f0_lt {t : Tm} (ht : WNF t) (h0 : t ≠ .zero) : Lt (fund t .zero) t := by
+  have hP := props_all t ht
+  cases hd : dom t with
+  | zero => exact absurd ((dom_eq_zero_iff ht).mp hd) h0
+  | one => rw [fund_of_dom_one _ hd]; exact pred_lt ht ((dom_eq_one_iff ht).mp hd)
+  | omega => rw [fund_zero_omega hd]; exact (hP.1 hd).lt 0
+  | big σ =>
+    rw [fund_zero_big hd]
+    have hB := hP.2 σ hd
+    exact hB.lt _ WNF.zero hB.pos
+
+theorem f0_le {t : Tm} (ht : WNF t) : Le (fund t .zero) t :=
+  if h0 : t = .zero then by subst h0; exact Or.inl rfl else Or.inr (f0_lt ht h0)
+
+theorem natProps_mono_le {t : Tm} (h : NatProps t) {i j : Nat} (hij : i ≤ j) :
+    Le (fundNat t i) (fundNat t j) := by
+  obtain ⟨k, rfl⟩ := Nat.exists_eq_add_of_le hij
+  induction k with
+  | zero => exact Or.inl rfl
+  | succ k ih =>
+    exact le_transY (h.nf _) (h.nf _) (h.nf _) (ih (Nat.le_add_right _ _)) (Or.inr (h.mono (i + k)))
 
 end MahloOCF.FS
 

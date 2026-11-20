@@ -1,10 +1,9 @@
 import Mahlo.FS.XiIter
 
-/-! 閉じた点の探索（`maxCl`・`frCl`・`kStart`）の仕様と、閉じた点が始点以下の項（`CF`）。
+/-! 閉じた点の探索（`maxCl`・`frCl`）の仕様と、見える閉じた点が全て与えられた点以下の項（`CF`）。
 
-`M_m` への対角化の塔は、目標の前線の中の閉じた点（`Ξ_m(w)`（`w ≥ M_m`）とそれを目標に持つ崩壊）の最大のもの
-から始める。閉じた点は `x` 以上の節点だけを通って見えるもの（`selfVis`）に限るので、成分の所属
-（`inC_of_selfVis`）が受け継がれる。 -/
+閉じた点は `x` 以上の節点だけを通って見えるもの（`selfVis`）に限るので、成分の所属（`inC_of_selfVis`）が
+受け継がれる。外に足す型の対角化の種（`a2Seed`：目標の前線の中で見える `Ψ_σ(·)` の最大のもの）に使う。 -/
 
 namespace MahloOCF.FS
 
@@ -182,24 +181,6 @@ theorem selfVis_of_fr {w u R : Tm} (hR : WNF R) (hwF : WNF w) (hv : selfVis w u 
       rcases h with h | h
       · exact Or.inr ⟨hup hP.piF h, Or.inl (selfVis_of_fr hR hwF hv hle hP.piF h)⟩
       · exact Or.inr ⟨hup hP.aF h, Or.inr (selfVis_of_fr hR hwF hv hle hP.aF h)⟩
-
-/-- 主要項の加数は見える -/
-theorem selfVis_summand {k : Tm} (hk : (∃ m a, k = .Xi m a) ∨ ∃ p a, k = .Psi p a) :
-    ∀ {c : Tm}, k ∈ summands c → selfVis k c = true
-  | .zero, h => by simp [summands] at h
-  | .plus a b, h => by
-    simp only [summands, List.mem_cons] at h
-    simp only [selfVis, Bool.or_eq_true]
-    rcases h with rfl | h
-    · exact Or.inl (selfVis_self hk)
-    · exact Or.inr (selfVis_summand hk h)
-  | .M _, h | .Om _, h => by
-    simp only [summands, List.mem_singleton] at h
-    rcases hk with ⟨m, a, e⟩ | ⟨p, a, e⟩ <;> rw [e] at h <;> cases h
-  | .Xi m a, h | .Psi m a, h => by
-    simp only [summands, List.mem_singleton] at h
-    subst h
-    exact selfVis_self hk
 
 /-! ### `maxOpt`・`maxCl` -/
 
@@ -400,7 +381,7 @@ theorem frCl_ge {cl : Tm → Bool} {τ e G' : Tm} (hτ : WNF τ) (he : e ∈ fr 
   exact ⟨e', he', hf, hl⟩
 
 /-- `frCl` は目標の前線の中の閉じた点（なければ `0`） -/
-theorem frCl_spec {cl : Tm → Bool} {τ : Tm} (hτ : WNF τ) :
+theorem frCl_spec {cl : Tm → Bool} {τ : Tm} :
     frCl cl τ = .zero ∨ ∃ e, e ∈ fr τ τ ∧ maxCl cl e e = some (frCl cl τ) := by
   unfold frCl
   cases h : ((frB τ τ).map (fun e => maxCl cl e e)).foldr maxOpt none with
@@ -409,75 +390,6 @@ theorem frCl_spec {cl : Tm → Bool} {τ : Tm} (hτ : WNF τ) :
     obtain ⟨e, he, hf⟩ := foldr_maxOpt_spec h
     rw [frB_eq_fr] at he
     exact Or.inr ⟨e, he, hf⟩
-
-/-- 調整 `c` の中の閉じた点 `k` は始点以下 -/
-theorem start_ge {cl : Tm → Bool} {k c P : Tm} (hn : (∃ m a, k = .Xi m a) ∨ ∃ p a, k = .Psi p a)
-    (hkF : WNF k) (hk : cl k = true) (hcF : WNF c) (hPF : WNF P)
-    (hc : c = k ∨ ∃ d, WNF d ∧ c = oadd d k) :
-    Le k ((maxOpt (maxCl cl c c) (maxCl cl P P)).getD .zero) := by
-  have hkp : isPrincipal k = true := by
-    rcases hn with ⟨m, a, rfl⟩ | ⟨p, a, rfl⟩ <;> rfl
-  have hmem : k ∈ summands c ∧ Le k c := by
-    rcases hc with rfl | ⟨d, hd, rfl⟩
-    · rw [summands_principal hkp]
-      exact ⟨List.mem_singleton.mpr rfl, Or.inl rfl⟩
-    · have hs := summands_principal hkp
-      have e1 := summands_oadd hs (nfl_principal (nfl_summands hd)) (nfl_principal (nfl_summands hkF))
-      rw [e1, hs]
-      exact ⟨List.mem_append_right _ (List.mem_singleton.mpr rfl), le_oadd_right hd hkF⟩
-  obtain ⟨G₁, hG₁, hl⟩ := maxCl_ge hn hkF hk (le_leB hmem.2) (selfVis_summand hn hmem.1) hcF
-    (mem_subs_of_mem_summands hmem.1)
-  obtain ⟨x, hx, hl'⟩ := maxOpt_ge_l hG₁ (maxCl_wnf hcF G₁ hG₁) (maxCl_wnf hPF)
-  have hxF : WNF x := by
-    rcases maxOpt_cases hx with h' | h'
-    · exact maxCl_wnf hcF x h'
-    · exact maxCl_wnf hPF x h'
-  rw [hx]
-  exact le_transY hkF (maxCl_wnf hcF G₁ hG₁) hxF hl hl'
-
-/-! ### `M_m` について閉じた点 -/
-
-theorem closedPt_node {m : Nat} : ∀ {x : Tm}, closedPt m x = true →
-    (∃ m a, x = .Xi m a) ∨ ∃ p a, x = .Psi p a
-  | .zero, h | .M _, h | .plus _ _, h | .Om _, h => by simp [closedPt] at h
-  | .Xi n a, _ => Or.inl ⟨n, a, rfl⟩
-  | .Psi p a, _ => Or.inr ⟨p, a, rfl⟩
-
-/-- 閉じた点があれば `1 ≤ m` -/
-theorem closedPt_pos {m : Nat} : ∀ {G : Tm}, WNF G → closedPt m G = true → 1 ≤ m
-  | .zero, _, h | .M _, _, h | .plus _ _, _, h | .Om _, _, h => by simp [closedPt] at h
-  | .Xi m' w, hG, h => by
-    simp only [closedPt, Bool.and_eq_true, beq_iff_eq] at h
-    rw [← h.1]
-    exact hG.xi.1
-  | .Psi ρ a, hG, h => closedPt_pos hG.psi.piF h
-
-/-- 閉じた点は `M_m` 未満 -/
-theorem closedPt_lt {m : Nat} : ∀ {G : Tm}, WNF G → closedPt m G = true → Lt G (.M m)
-  | .zero, _, h | .M _, _, h | .plus _ _, _, h | .Om _, _, h => by simp [closedPt] at h
-  | .Xi m' w, hG, h => by
-    simp only [closedPt, Bool.and_eq_true, beq_iff_eq] at h
-    rw [h.1]
-    exact xi_lt_M w
-  | .Psi ρ a, hG, h => by
-    have hP := hG.psi
-    exact lt_transY hG hP.piF (WNF.M' (closedPt_pos hG h)) (lt_psi_targetY hG) (closedPt_lt hP.piF h)
-
-/-- 始点の性質 -/
-theorem start_spec {m : Nat} {c P : Tm} (hm : 1 ≤ m) (hc : WNF c) (hP : WNF P) :
-    WNF (kStart m c P) ∧ Lt (kStart m c P) (.M m) ∧
-      ∀ g d, Cut d → inC c g d = true → inC P g d = true → inC (kStart m c P) g d = true := by
-  unfold kStart
-  cases h : maxOpt (maxXiClosed m c c) (maxXiClosed m P P) with
-  | none => exact ⟨WNF.zero, zero_lt (by intro e; cases e), fun _ _ _ _ _ => inC_zero _ _⟩
-  | some G =>
-    rcases maxOpt_cases h with h' | h'
-    · obtain ⟨h1, h2, -, h3, -⟩ := maxCl_spec h'
-      have hG := hc.of_mem_subs h1
-      exact ⟨hG, closedPt_lt hG h2, fun g d hd hC _ => inC_of_selfVis hG hd hc h3 hC⟩
-    · obtain ⟨h1, h2, -, h3, -⟩ := maxCl_spec h'
-      have hG := hP.of_mem_subs h1
-      exact ⟨hG, closedPt_lt hG h2, fun g d hd _ hC => inC_of_selfVis hG hd hP h3 hC⟩
 
 /-! ### 閉じた点が始点以下の項 -/
 
@@ -529,29 +441,5 @@ theorem CF.tgt {cl : Tm → Bool} {G ρ a : Tm} (h : CF cl G (.Psi ρ a)) (hz : 
     refine h w hwF hcw (Or.inr hwz) ?_
     simp only [selfVis, Bool.or_eq_true, Bool.and_eq_true]
     exact Or.inr ⟨le_leB (Or.inr hwz), Or.inl hv⟩
-
-/-- 目標の前線の元は閉じた点が始点以下 -/
-theorem cf_front {cl : Tm → Bool} {π e c P : Tm}
-    (hnode : ∀ x, cl x = true → (∃ m a, x = .Xi m a) ∨ ∃ p a, x = .Psi p a)
-    (hπ : WNF π) (he : e ∈ fr π π) (hcF : WNF c) (hPF : WNF P)
-    (hc : c = frCl cl π ∨ ∃ d, WNF d ∧ c = oadd d (frCl cl π)) :
-    CF cl ((maxOpt (maxCl cl c c) (maxCl cl P P)).getD .zero) e := by
-  intro w hwF hcw hle hv
-  have heF := hπ.of_mem_subs (fr_spec he).1
-  obtain ⟨G', hG', hl⟩ := maxCl_ge (hnode w hcw) hwF hcw (le_leB hle) hv heF (selfVis_mem hv)
-  obtain ⟨e', he', hf, hl'⟩ := frCl_ge hπ he hG'
-  have he'F := hπ.of_mem_subs (fr_spec he').1
-  obtain ⟨h1, h2, -, -, -⟩ := maxCl_spec hf
-  have hxF := he'F.of_mem_subs h1
-  have h3 := start_ge (hnode _ h2) hxF h2 hcF hPF hc
-  have hG'F := maxCl_wnf heF G' hG'
-  have hsF : WNF ((maxOpt (maxCl cl c c) (maxCl cl P P)).getD .zero) := by
-    cases hm : maxOpt (maxCl cl c c) (maxCl cl P P) with
-    | none => exact WNF.zero
-    | some x =>
-      rcases maxOpt_cases hm with h' | h'
-      · exact maxCl_wnf hcF x h'
-      · exact maxCl_wnf hPF x h'
-  exact le_transY hwF hxF hsF (le_transY hwF hG'F hxF hl hl') h3
 
 end MahloOCF.FS

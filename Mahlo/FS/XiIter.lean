@@ -98,7 +98,7 @@ theorem xi_tower_hull {m : Nat} {Y R : Tm} {pre : List Tm} (hY : WNF Y)
           rw [← hγS N]; exact hγF _
         have hCl : Cl (.M j) (γ (N + 1)) := by rw [hγS N]; exact Cl.of_xi hy1
         refine hCl g hgF (lfr_spec hg).2 (fun f hf => ?_)
-        have hf1 : f ∈ fr (.M j) ζ' := fr_of_lfr hMF hζ' hg hf
+        have hf1 : f ∈ fr (.M j) ζ' := fr_of_lfr hζ' hg hf
         have hf2 : f ∈ fr (.M j) ζ :=
           fr_sub_of_summands (fun u hu => by rw [hsζ]; exact List.mem_append_right _ hu) hf1
         exact lt_transY (hζF.of_mem_subs (fr_spec hf2).1) (hγF N) (hγF _) (hN f hf2 trivial) (hγm N)

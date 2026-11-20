@@ -261,19 +261,10 @@ theorem floor_lowx {m : Nat} {q A : Tm} (hρ : WNF (.Xi m q)) (hy : WNF (.Xi m A
 
 /-! ### `t = Ψ_ρ(q+1)` の部分項 -/
 
-theorem mem_subs_one_cases {v : Tm} (h : v ∈ subs one) : v = one ∨ v = .Om .zero ∨ v = .zero := by
-  simp only [one, subs, List.mem_cons, List.mem_append, List.mem_singleton, List.not_mem_nil,
-    or_false] at h
-  rcases h with h | (h | h) | h
-  · exact Or.inl h
-  · exact Or.inr (Or.inl h)
-  · exact Or.inr (Or.inr h)
-  · exact Or.inr (Or.inr h)
-
 /-- `y` が主要項で `1`・`Ω_0`・`0` より大きいとき、`1` の部分項は `y` 未満 -/
 theorem lt_of_sub_one {y v : Tm} (h1 : Lt one y) (hO : Lt (.Om .zero) y) (hy0 : Lt .zero y)
     (hv : v ∈ subs one) : Lt v y := by
-  rcases mem_subs_one_cases hv with rfl | rfl | rfl
+  rcases mem_subs_one hv with rfl | rfl | rfl
   · exact h1
   · exact hO
   · exact hy0
@@ -361,7 +352,7 @@ theorem s0_first_xi {m : Nat} {q : Tm} (hρ : WNF (.Xi m q)) (hq0 : q ≠ .zero)
         .zero .zero).first = .Xi m (xa (summands q).dropLast .zero x0) ∧
       WNF x0 ∧ Lt x0 R ∧ (∀ v, v ∈ subs R → v ≠ R → Lt v R → Lt v x0) ∧
       (x0 = .zero → ∀ v, v ∈ subs R → v = R) ∧ (∀ n b, R = .Xi n b → x0 = base R) ∧
-      WNF (.Xi m (xa (summands q).dropLast .zero x0)) := by
+      WNF (.Xi m (xa (summands q).dropLast .zero x0)) ∧ x0 = fund R .zero := by
   obtain ⟨hm, hqF, hle, hqC⟩ := hρ.xi
   have hMF := WNF.M' hm
   have hρM : Lt (.Xi m q) (.M m) := xi_lt_M q
@@ -393,8 +384,9 @@ theorem s0_first_xi {m : Nat} {q : Tm} (hρ : WNF (.Xi m q)) (hq0 : q ≠ .zero)
       (fun n b e => by rw [e, dom_xi] at hdR; cases hdR), ?_⟩
     · unfold SeqD.first; rw [app_xi_dom_nat hr]; exact app_xi_nat hr WNF.zero hxF
     · have hRC := G0.pre_inC hxF (hRN.gap 0) (fun h0 => absurd h0 (hRN.pos 0)) G0.hqC R (by simp)
-      exact G0.nf hxF (hRN.props.lt 0) (hRN.gap 0) (fun h0 => absurd h0 (hRN.pos 0))
-        (hRN.ub _ _ 0 (G0.hAF hxF) (G0.xa0 hxF (hRN.pos 0)) (Cut.of_wnf hMF) hRC)
+      exact ⟨G0.nf hxF (hRN.props.lt 0) (hRN.gap 0) (fun h0 => absurd h0 (hRN.pos 0))
+        (hRN.ub _ _ 0 (G0.hAF hxF) (G0.xa0 hxF (hRN.pos 0)) (Cut.of_wnf hMF) hRC),
+        (fund_zero_omega hdR).symm⟩
   | big σ =>
     have hr : (info R).seq.dom = .big σ := hdR
     have hB := hRi.2 σ hdR
@@ -406,7 +398,7 @@ theorem s0_first_xi {m : Nat} {q : Tm} (hρ : WNF (.Xi m q)) (hq0 : q ≠ .zero)
     by_cases hσρ : Lt σ (.Xi m q)
     · refine ⟨fundBig R .zero, hsq, ?_, hxF, hB.props.lt .zero WNF.zero hσ0, hgap,
         hB.pos .zero WNF.zero hσ0, fun n b e => by rw [e, fundBig_xi, oadd_zero],
-        G0.big_wnf hB (lt_transY hσF hρ hMF hσρ hρM) WNF.zero hσ0⟩
+        G0.big_wnf hB (lt_transY hσF hρ hMF hσρ hρM) WNF.zero hσ0, (fund_zero_big hdR).symm⟩
       unfold SeqD.first; rw [app_xi_big_dom hr hσρ]; exact app_xi_big WNF.zero hxF
     · rcases cof_split hρ hRq hB hσρ with e | ⟨-, -, eq⟩
       · subst e
@@ -423,7 +415,8 @@ theorem s0_first_xi {m : Nat} {q : Tm} (hρ : WNF (.Xi m q)) (hq0 : q ≠ .zero)
               (inC_kTerm _ _ _) hRC (inC_zero _ _)
         refine ⟨fundBig R .zero, hsq, ?_, hxF, hB.props.lt .zero WNF.zero hσ0, hgap,
           hB.pos .zero WNF.zero hσ0, fun n b e => by rw [e, fundBig_xi, oadd_zero],
-          G0.nf hxF (hB.props.lt .zero WNF.zero hσ0) hgap (hB.pos .zero WNF.zero hσ0) hxC⟩
+          G0.nf hxF (hB.props.lt .zero WNF.zero hσ0) hgap (hB.pos .zero WNF.zero hσ0) hxC,
+          (fund_zero_big hdR).symm⟩
         unfold SeqD.first
         rw [app_xi_M_dom hr hτ, app_xi_M_nat hr hτ, gam_xi_M_succ, gam_xi_M_zero]
         exact congrArg (Tm.Xi m) (combine_xi m _ WNF.zero hxF)
@@ -665,7 +658,7 @@ theorem seedHyp_floor {m : Nat} {q p : Tm} (hρ : WNF (.Xi m q)) (hq0 : q ≠ .z
     · exact not_lt_of_leY hqF hpF (hL₂ q (by rw [e3]; simp)) hpS
     · rw [e2] at hcT
       exact hcT (by simpa [ofSummands] using hcq)
-  obtain ⟨R, x0, hsq, hfirst, hx0, hx0R, hgap, -, hbase, hyF⟩ := s0_first_xi hρ hq0 hs hqS hRinv
+  obtain ⟨R, x0, hsq, hfirst, hx0, hx0R, hgap, -, hbase, hyF, -⟩ := s0_first_xi hρ hq0 hs hqS hRinv
   rw [hfirst] at h1 h2
   have hlt : Lt (.Xi m (xa (summands q).dropLast .zero x0)) p := by
     rcases triY hyF hpF with h | e | h
@@ -724,7 +717,7 @@ theorem floor_first_ne {m : Nat} {q p : Tm} (hρ : WNF (.Xi m q)) (hq0 : q ≠ .
     have hps := (fr_spec hpq).1
     rw [hqS, ← he] at hps
     simp [succM, subs, one] at hps
-  obtain ⟨R, x0, hsq, hfirst, hx0, hx0R, hgap, hpos, -, hyF⟩ := s0_first_xi hρ hq0 hs hqS hRinv
+  obtain ⟨R, x0, hsq, hfirst, hx0, hx0R, hgap, hpos, -, hyF, -⟩ := s0_first_xi hρ hq0 hs hqS hRinv
   rw [hfirst] at he
   subst he
   have hRq : R ∈ summands q := by rw [hsq]; simp
@@ -794,7 +787,7 @@ theorem lt_of_summands_sub {y B : Tm} (hBF : WNF B) (hyp : isPrincipal y = true)
 theorem node_sub_succT : ∀ {z n : Tm}, ((∃ m a, n = .Xi m a) ∨ (∃ k a, n = .Psi k a)) →
     n ∈ subs (succT z) → n ∈ subs z ∨ n = one
   | .zero, n, hn, h => by
-    rcases mem_subs_one_cases h with e | e | e
+    rcases mem_subs_one h with e | e | e
     · exact Or.inr e
     · subst e; rcases hn with ⟨m, x, e⟩ | ⟨k, x, e⟩ <;> cases e
     · subst e; rcases hn with ⟨m, x, e⟩ | ⟨k, x, e⟩ <;> cases e
@@ -820,7 +813,7 @@ where
     rcases h' with e | h' | h'
     · subst e; rcases hn with ⟨m, x, e⟩ | ⟨k, x, e⟩ <;> cases e
     · exact Or.inl h'
-    · rcases mem_subs_one_cases h' with e | e | e
+    · rcases mem_subs_one h' with e | e | e
       · exact Or.inr e
       · subst e; rcases hn with ⟨m, x, e⟩ | ⟨k, x, e⟩ <;> cases e
       · subst e; rcases hn with ⟨m, x, e⟩ | ⟨k, x, e⟩ <;> cases e
@@ -879,7 +872,6 @@ theorem mahloVK_first_big {m : Nat} {q : Tm} {qs : DL} {ceil : Tm} {P : Option T
     exact ⟨one_lt_xi hF, (lt_om_OFG (Or.inl ⟨_, _, rfl⟩) hF).mpr (zero_lt (by intro e; cases e)),
       zero_lt (by intro e; cases e), rfl⟩
   · rw [hG] at hF ⊢
-    have hsG := hF.om.1
     have hO : Lt (.Om .zero) (.Om (sc G)) := lt_om_iffG.mpr (zero_lt (by
       intro e; have := lt_succT G; unfold sc at e; rw [e] at this; exact not_lt_zero _ this))
     exact ⟨lt_transY WNF.one WNF.om_zero hF (lt_psi_targetY WNF.one) hO, hO,
@@ -1062,7 +1054,7 @@ theorem floor_gap {m : Nat} {q : Tm} (hρ : WNF (.Xi m q)) (hRinv : ∀ R, R ∈
           rw [h3] at hs
           exact not_isSucc_succM m hs
         obtain ⟨A₀, hA₀, -, hPA, -⟩ :=
-          app_first_xi G (hRinv R hRq) (not_succ_of_gt hsF hsp' hRW.2 hRW.1 hsR) hRS
+          app_first_xi G (hRinv R hRq) (not_succ_of_gt hsF hsp' hRW.2 hsR) hRS
         rw [hA₀]; exact hPA
     have hyfst : Lt (.Xi m (predT q)) (mahloVK m q (info q).sums (.Xi m q) P0).first :=
       lt_of_le_of_ltY hyF hsF hfF hys' hsf
@@ -1080,7 +1072,7 @@ theorem floor_gap {m : Nat} {q : Tm} (hρ : WNF (.Xi m q)) (hRinv : ∀ R, R ∈
         · exact k2xY hyF f (mem_fr_iff.mpr ⟨u, hu, hfu⟩)
         · rw [List.mem_singleton.mp hu] at hfu
           have hf1 : f = one := by
-            rcases mem_subs_one_cases (fr_spec hfu).1 with e | e | e
+            rcases mem_subs_one (fr_spec hfu).1 with e | e | e
             · exact e
             · exfalso; rw [e] at hfu; rcases fr_node hfu with ⟨_, _, e'⟩ | ⟨_, _, e'⟩ <;> cases e'
             · exfalso; rw [e] at hfu; rcases fr_node hfu with ⟨_, _, e'⟩ | ⟨_, _, e'⟩ <;> cases e'
@@ -1118,7 +1110,7 @@ theorem floor_gap {m : Nat} {q : Tm} (hρ : WNF (.Xi m q)) (hRinv : ∀ R, R ∈
     · exfalso; rw [e] at hvρ; exact Lt.asymmY hρ hpl hρMS hvρ
     · exfalso; rw [e] at hvρ; exact Lt.asymmY hρ hMF hρM hvρ
     · exact lt_of_sub_one h1f hOf h0f hv1
-  obtain ⟨R, x0, hsq, hfirst, hx0, hx0R, hgap, hpos, -, hY0F⟩ := s0_first_xi hρ hq0 hs hqS hRinv
+  obtain ⟨R, x0, hsq, hfirst, hx0, hx0R, hgap, hpos, -, hY0F, -⟩ := s0_first_xi hρ hq0 hs hqS hRinv
   have hRq : R ∈ summands q := by rw [hsq]; simp
   have hRW := summands_WNF q hqF R hRq
   have hR0 : R ≠ .zero := by intro e; rw [e] at hRW; cases hRW.2
@@ -1205,7 +1197,7 @@ theorem floor_gap {m : Nat} {q : Tm} (hρ : WNF (.Xi m q)) (hRinv : ∀ R, R ∈
     cases hsg : splitGtD p (info q).sums with
     | none =>
       -- `q = p`、列は `p` の上の塔
-      simp only [hsg]
+      simp only
       have hall := splitGtD_none hqF hpF hsg
       have hRp : R = p := le_antisymmY hRW.1 hpF (hall R hRq) hpleR
       have hpre0 : (summands q).dropLast = [] := by
@@ -1231,7 +1223,7 @@ theorem floor_gap {m : Nat} {q : Tm} (hρ : WNF (.Xi m q)) (hRinv : ∀ R, R ∈
       obtain ⟨pre₂, R₂, r₂⟩ := val
       obtain ⟨rest₂, hsq₂, hr₂, hpR₂, hrest₂⟩ := splitGtD_spec hqF hpF hsg
       subst hr₂
-      simp only [hsg, mkApp_xi (ltB_iff.mpr hpR₂)]
+      simp only [mkApp_xi (ltB_iff.mpr hpR₂)]
       have hR₂q : R₂ ∈ summands q := by rw [hsq₂]; simp
       have hR₂W := summands_WNF q hqF R₂ hR₂q
       have G₂ : XG m q p pre₂ rest₂ R₂ :=
@@ -1242,7 +1234,7 @@ theorem floor_gap {m : Nat} {q : Tm} (hρ : WNF (.Xi m q)) (hRinv : ∀ R, R ∈
         rw [e] at h3
         exact hqS (le_antisymmY hqF hSF h4 h3)
       obtain ⟨A₀, hA₀, hyF₀, hpy₀, hc₀⟩ :=
-        app_first_xi G₂ (hRinv R₂ hR₂q) (not_succ_of_gt hpF hpp hR₂W.2 hR₂W.1 hpR₂) hR₂S
+        app_first_xi G₂ (hRinv R₂ hR₂q) (not_succ_of_gt hpF hpp hR₂W.2 hpR₂) hR₂S
       rw [hA₀]
       refine lt_of_summands_sub hρ rfl (zero_lt (by intro e; cases e)) hqF
         (fun s hs' w hw hwF hwρ => ?_) v hv hvF hvρ

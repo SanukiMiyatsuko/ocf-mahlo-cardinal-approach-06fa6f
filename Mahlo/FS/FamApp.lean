@@ -110,7 +110,6 @@ theorem famNat_app_M {m : Nat} {q P' R τ : Tm} {pre rest : List Tm} {P : Option
   have hr : (info R).seq.dom = .big (.M m) := hRd
   have hRP := hRi.props
   have hMF := G.hMF
-  have hm := G.hm
   have hρ := G.ht
   have hqF := G.hqF
   have hρM : Lt (.Xi m q) (.M m) := xi_lt_M q
@@ -315,14 +314,15 @@ theorem outsideMode_xi {τ σ : Tm} {m : Nat} (hM : ∀ k, σ ≠ .M k) (hne : �
 
 theorem gam_xi_out_zero {τ σ R P' : Tm} {m : Nat} {pre : List Tm} {r : SeqD} (hM : ∀ k, σ ≠ .M k)
     (hne : σ ≠ τ) : gam τ σ (.xi m) pre R r .zero P' 0 =
-      if validR σ (oadd (ofSummands pre) (r.big .zero)) then .zero else base σ := by
+      if validR σ (oadd (ofSummands pre) (r.big .zero)) then .zero
+      else col σ (oadd (ofSummands pre) (oadd (adjOf σ pre) (r.big .zero))) 0 := by
   cases σ with
   | M k => exact absurd rfl (hM k)
   | _ => simp only [gam, canonK_notM hM, outsideMode_xi hM hne, Bool.false_eq_true, ↓reduceIte]
 
 theorem gam_xi_out_succ {τ σ R P' : Tm} {m : Nat} {pre : List Tm} {r : SeqD} (hM : ∀ k, σ ≠ .M k)
     (hne : σ ≠ τ) (k : Nat) : gam τ σ (.xi m) pre R r .zero P' (k + 1) =
-      col σ (oadd (ofSummands pre) (r.big (gam τ σ (.xi m) pre R r .zero P' k))) k := by
+      col σ (oadd (ofSummands pre) (oadd (adjOf σ pre) (r.big (gam τ σ (.xi m) pre R r .zero P' k)))) k := by
   cases σ with
   | M j => exact absurd rfl (hM j)
   | _ => simp only [gam, canonK_notM hM, outsideMode_xi hM hne, Bool.false_eq_true, ↓reduceIte]
@@ -347,8 +347,9 @@ theorem gam_xi_S {m : Nat} {P' : Tm} (hm : 1 ≤ m) (k : Nat) :
     rfl
   | succ k ih =>
     rw [gam_xi_out_succ (succM_ne_M m) (succM_ne_xi m), ih, info_seq_succM]
-    show col (succM m) (oadd (ofSummands []) (oadd (.Psi (succM m) .zero) (virtG m k))) k = virtG m (k + 1)
-    rw [show ofSummands ([] : List Tm) = .zero from rfl, zero_oadd (virtE_F hm k)]
+    show col (succM m) (oadd (ofSummands []) (oadd (adjOf (succM m) []) (oadd (.Psi (succM m) .zero) (virtG m k)))) k = virtG m (k + 1)
+    rw [show adjOf (succM m) [] = .zero from rfl, zero_oadd (virtE_F hm k),
+      show ofSummands ([] : List Tm) = .zero from rfl, zero_oadd (virtE_F hm k)]
     simp only [col, validR, argR?]
     rfl
 
@@ -381,8 +382,6 @@ theorem famNat_app_S {m : Nat} {P' : Tm} {P : Option Tm}
   -- `virtE` の所属
   have hEC : ∀ n g d, Lt .zero g → (∀ j, j < n → Lt (virtE m j) g) → inC (virtE m n) g d = true :=
     fun n g d h0 h => inC_oadd (wnf_psi0M hm) (virtG_F hm n) (inC_psi0M h0) (inC_virtG hm h0 n h)
-  have hEg : ∀ n g, WNF g → Lt (virtE m n) g → ∀ j, j < n → Lt (virtE m j) g := fun n g hg h j hj =>
-    lt_of_le_of_ltY (hEF j) (hEF n) hg (virtE_le_of hm (Nat.le_of_lt hj)) h
   have hE0 : ∀ n, virtE m n ≠ .zero := fun n =>
     oadd_ne_zero_left (wnf_psi0M hm) (virtG_F hm n) (by intro e; cases e)
   have hgapS : ∀ n v, v ∈ subs (succM m) → v ≠ succM m → Lt v (succM m) → Lt v (virtE m n) := by

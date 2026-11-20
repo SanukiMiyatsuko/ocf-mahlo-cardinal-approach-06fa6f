@@ -12,11 +12,7 @@ open Tm
 /-- 崩壊 `Ψ_π(X)` の列の記述 -/
 def cs (π X : Tm) : SeqD := cseq π (info π).fam X (info X).sums
 
-theorem info_seq_psi (π X : Tm) : (info (Psi π X)).seq = cs π X := rfl
-
 theorem info_fam_xi (m : Nat) (q : Tm) : (info (Xi m q)).fam = .xi m q (info q).sums := rfl
-
-theorem info_fam_om (c : Tm) : (info (Om c)).fam = .om := rfl
 
 theorem dom_zero : dom zero = .zero := rfl
 theorem dom_M (m : Nat) : dom (M m) = .big (M m) := rfl
@@ -69,6 +65,15 @@ theorem fund_eq (t ξ : Tm) : fund t ξ =
     | .one => pred t
     | .omega => fundNat t (natOf ξ)
     | .big σ => fundBig t (if ltB ξ σ then ξ else zero) := rfl
+
+theorem fund_zero_omega {t : Tm} (h : dom t = .omega) : fund t .zero = fundNat t 0 := by
+  rw [fund_eq, h]
+  rfl
+
+theorem fund_zero_big {t σ : Tm} (h : dom t = .big σ) : fund t .zero = fundBig t .zero := by
+  rw [fund_eq, h]
+  show fundBig t (if ltB zero σ = true then zero else zero) = _
+  split <;> rfl
 
 /-- 加数の記述は各加数の記述 -/
 def Coh (l : DL) : Prop := ∀ p ∈ l, p.2 = (info p.1).seq
@@ -154,8 +159,6 @@ theorem le_pred {a x : Tm} (ha : WNF a) (hs : isSucc a = true) (hx : WNF x) (h :
     rw [succT_pred ha hs] at h2
     exact not_lt_of_leY ha hx h2 h
 
-theorem pred_eq_predT (a : Tm) : pred a = predT a := rfl
-
 end MahloOCF.FS
 
 /-! ### 崩壊の列の記述の形 -/
@@ -207,7 +210,6 @@ theorem SeqD.eq_none_of_dom {s : SeqD} (h : s.isC = true) (hd : s.dom = .zero) :
 theorem mkApp_eq_some {ceil : Tm} {g : Gen} {pre : List Tm} {R : Tm} {r : SeqD} {P c : Tm} {s : SeqD}
     (h : mkApp ceil g pre R r P c = some s) : ∃ c', s = .app ceil g pre R r P c' := by
   unfold mkApp at h
-  dsimp only at h
   split at h
   · cases h
   · split at h
@@ -215,9 +217,7 @@ theorem mkApp_eq_some {ceil : Tm} {g : Gen} {pre : List Tm} {R : Tm} {r : SeqD} 
       · cases h; exact ⟨_, rfl⟩
       · split at h
         · cases h
-        · split at h
-          · cases h; exact ⟨_, rfl⟩
-          · cases h; exact ⟨_, rfl⟩
+        · cases h; exact ⟨_, rfl⟩
     · cases h; exact ⟨_, rfl⟩
 
 theorem mkApp_isC {ceil : Tm} {g : Gen} {pre : List Tm} {R : Tm} {r : SeqD} {P c : Tm} {s : SeqD}
@@ -227,11 +227,6 @@ theorem mkApp_isC {ceil : Tm} {g : Gen} {pre : List Tm} {R : Tm} {r : SeqD} {P c
 
 theorem mkApp_ne_none {ceil : Tm} {g : Gen} {pre : List Tm} {R : Tm} {r : SeqD} {P c : Tm} {s : SeqD}
     (h : mkApp ceil g pre R r P c = some s) : s ≠ .none := (mkApp_isC h).2
-
-theorem getD_isC {o : Option SeqD} (h : ∀ s, o = some s → s.isC = true) : (o.getD .none).isC = true := by
-  cases o with
-  | none => rfl
-  | some s => exact h s rfl
 
 theorem mahloVK_isC (m : Nat) (q : Tm) (qs : DL) (ceil : Tm) (P : Option Tm) :
     (mahloVK m q qs ceil P).isC = true := by
@@ -297,12 +292,6 @@ namespace MahloOCF.FS
 
 open Tm
 
-theorem cmpList_prefix : ∀ (l m m' : List Tm), cmpList (l ++ m) (l ++ m') = cmpList m m'
-  | [], _, _ => rfl
-  | x :: xs, m, m' => by
-    rw [List.cons_append, List.cons_append, cmpList_cons_cons_eq _ _ (cmpP_self x)]
-    exact cmpList_prefix xs m m'
-
 /-- 標準形の `Ψ_π(X)` では、目標の引数 `r` は `X` 未満 -/
 theorem lt_argR {π X r : Tm} (hP : PsiNF π X) (hr : argR? π = some r) : Lt r X := by
   cases π with
@@ -349,7 +338,7 @@ theorem lt_tailRaw {π X rt : Tm} (hX : WNF X) (hX0 : X ≠ zero) (hP : PsiNF π
       rw [cmp_eq, summands_ofSummands _ hDp, summands_principal hRp]
       calc cmpList (List.drop (summands X).dropLast.length (summands r)) [(summands X).getLast hne]
           = cmpList ((summands X).dropLast ++ List.drop (summands X).dropLast.length (summands r))
-              ((summands X).dropLast ++ [(summands X).getLast hne]) := (cmpList_prefix _ _ _).symm
+              ((summands X).dropLast ++ [(summands X).getLast hne]) := (cmpList_append_same _ _ _).symm
         _ = cmpList (summands r) (summands X) := by rw [← er, ← eX]
         _ = .lt := by have := hrX; unfold Lt at this; rw [cmp_eq] at this; exact this
     · cases h
@@ -464,11 +453,6 @@ theorem famSeq_ne_one : ∀ (πf : Fam) (ceil : Tm) (P : Option Tm), famSeq πf 
   | .xi m q qs, ceil, P => by unfold famSeq; exact mahloVK_ne_one _ _ _ _ _
   | .none, _, _ => by unfold famSeq; simp
 
-theorem getD_ne_one {o : Option SeqD} (h : ∀ s, o = some s → s ≠ .one) : o.getD .none ≠ .one := by
-  cases o with
-  | none => simp
-  | some s => exact h s rfl
-
 theorem limitSeq_ne_one (τ : Tm) (c : Tm) (xs : DL) : limitSeq τ c xs ≠ .one := by
   rcases limitSeq_cases (τ := τ) (ceil := c) (xs := xs) with e | ⟨c', e | ⟨s, e⟩⟩ <;> rw [e] <;>
     intro h <;> cases h
@@ -546,8 +530,6 @@ theorem dom_eq_zero_iff : ∀ {t : Tm}, WNF t → (dom t = .zero ↔ t = zero)
 
 theorem fund_of_dom_one {t : Tm} (ξ : Tm) (h : dom t = .one) : fund t ξ = pred t := by
   rw [fund_eq, h]
-
-theorem fund_zero (ξ : Tm) : fund zero ξ = zero := rfl
 
 theorem wnf_ofNatT (n : Nat) : WNF (ofNatT n) := wnf_mulNat WNF.one rfl n
 

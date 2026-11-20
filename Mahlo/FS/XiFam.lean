@@ -165,8 +165,6 @@ theorem hAq (G : XG m q P pre rest R) {x : Tm} (hx : WNF x) (hxR : Lt x R) : Lt 
   lt_of_lt_of_leY (G.hAF hx) G.hTF G.hqF (G.hAT hx hxR) G.hTq
 theorem hxA (G : XG m q P pre rest R) {x : Tm} (hx : WNF x) : Le x (xa pre P x) :=
   le_transY hx (G.hyF hx) (G.hAF hx) (le_nsum_right G.hPF hx) (le_oadd_right G.hpreF (G.hyF hx))
-theorem hPA (G : XG m q P pre rest R) {x : Tm} (hx : WNF x) : Le P (xa pre P x) :=
-  le_transY G.hPF (G.hyF hx) (G.hAF hx) (le_nsum_left G.hPF hx) (le_oadd_right G.hpreF (G.hyF hx))
 theorem hAmono (G : XG m q P pre rest R) {x x' : Tm} (hx : WNF x) (hx' : WNF x') (h : Lt x x') :
     Lt (xa pre P x) (xa pre P x') :=
   oadd_lt_oadd G.hpreF (G.hyF hx) (G.hyF hx') (nsum_lt_right G.hPF hx hx' h)

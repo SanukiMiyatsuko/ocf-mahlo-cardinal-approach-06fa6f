@@ -123,7 +123,7 @@ theorem BigInv.clo {t σ : Tm} (h : BigInv t σ) {x β : Tm} (hx : WNF x) (hxt :
     (hβσ : Lt β σ) (hCl : Cl σ β) (hfr : ∀ f, f ∈ fr σ x → Lt f β) : Lt x (fundBig t β) :=
   h.lclo x β hx hxt hβ (hCl.pos h.props.pos) hβσ (fun g hg =>
     hCl g (hx.of_mem_subs (lfr_spec hg).1) (lfr_spec hg).2
-      (fun f hf => hfr f (fr_of_lfr h.props.σF hx hg hf)))
+      (fun f hf => hfr f (fr_of_lfr hx hg hf)))
 
 /-! ### 補題 -/
 
@@ -595,7 +595,6 @@ theorem gap_om {c y : Tm} (h : WNF (.Om c)) (hs : ¬ omReg c) (hy : WNF y)
   exact lt_of_lt_of_leY hvF hnF (WNF.om_succT hy) hvn (le_om_of_leY hey)
 
 theorem natInv_om {c : Tm} (h : WNF (.Om c)) (hs : ¬ omReg c) (hc : NatInv c) : NatInv (.Om c) := by
-  have hcF := h.om.1
   refine ⟨natProps_om h hs hc.props, fun n => ?_, fun g d n hg hg0 hd hC => ?_,
     fun n v hv hne hlt => ?_, fun g d n hg hg0 hd hC => ?_⟩
   · rw [fundNat_om hs]; intro e; cases e
@@ -649,7 +648,6 @@ theorem bigInv_om {c σ : Tm} (h : WNF (.Om c)) (hs : ¬ omReg c) (hc : BigInv c
     lbS := fun m e hlt ξ hξ hξσ => by
       subst e
       have hMF := hP.σF
-      have hm := hMF.M
       rw [fundBig_om_lim hs]
       have h1 : Lt (succT (.M m)) c := lt_om_iffG.mp hlt
       have h1' : Lt (.M m) c := lt_transY hMF (succT_WNF hMF) hcF (lt_succT _) h1

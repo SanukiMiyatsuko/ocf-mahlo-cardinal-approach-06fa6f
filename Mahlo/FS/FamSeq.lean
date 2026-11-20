@@ -58,8 +58,6 @@ theorem famNat_xa {m : Nat} {q P' R : Tm} {pre rest : List Tm} {P : Option Tm}
       ¬ Lt c (ofSummands (pre ++ [R])) → Lt (.Xi m c) (.Xi m (xa pre P' (x 0))))
     (hseed : ∀ p, P = some p → Lt p (.Xi m (xa pre P' (x 0)))) :
     FamNat m q P (fun n => .Xi m (xa pre P' (x n))) := by
-  have hm := G.hm
-  have hMF := G.hMF
   have hqF := G.hqF
   have hρ := G.ht
   have hPF := G.hPF

@@ -50,6 +50,7 @@ theorem good_semi {pi a : Tm} (h : Good.{u} (.Psi pi a)) : SemiPsi.{u} pi a := b
   cases h with
   | psi _ _ hpi ha hreg hact _ => exact ⟨hpi, ha, hreg, hact⟩
 
+omit [Setting] in
 /-- 主数の項どうしの `cmp` は `cmpP` -/
 theorem cmp_principal {x y : Tm} (hx : isPrincipal x = true) (hy : isPrincipal y = true) :
     cmp x y = cmpP x y := by

@@ -96,39 +96,4 @@ theorem le_of_lt_succT {a y : Tm} (ha : WNF a) (hy : WNF y) (h : Lt a (succT y))
   intro hya
   exact not_lt_of_leY (succT_WNF hy) ha (succT_leY hy ha hya) h
 
-/-- サイズの議論：`w` の大きさが `y` 以下なら、`w` の中の節点の引数は `y` と異なるので、
-    `w ∈ C(y + 1, d)` から `w ∈ C(y, d)` -/
-theorem inC_pred_of_size {y d : Tm} (hy : WNF y) :
-    ∀ w : Tm, WNF w → w.size ≤ y.size → inC w (succT y) d = true → inC w y d = true
-  | .zero, _, _, _ => inC_zero _ _
-  | .M _, _, _, _ => inC_M _ _ _
-  | .plus a b, hw, hs, h => by
-    obtain ⟨ha, hb, -, -⟩ := hw.plus
-    rw [inC_plus, Bool.and_eq_true] at h ⊢
-    simp only [Tm.size] at hs
-    exact ⟨inC_pred_of_size hy a ha (by omega) h.1, inC_pred_of_size hy b hb (by omega) h.2⟩
-  | .Om a, hw, hs, h => by
-    rw [inC_om] at h ⊢
-    simp only [Tm.size] at hs
-    exact inC_pred_of_size hy a hw.om.1 (by omega) h
-  | .Xi n a, hw, hs, h => by
-    rcases inC_xi_iff.mp h with h | ⟨h1, h2⟩
-    · exact inC_xi_iff.mpr (Or.inl h)
-    · have ha := hw.xi.2.1
-      simp only [Tm.size] at hs
-      refine inC_xi_iff.mpr (Or.inr ⟨inC_pred_of_size hy a ha (by omega) h1, ?_⟩)
-      rcases le_of_lt_succT ha hy h2 with e | e
-      · subst e; omega
-      · exact e
-  | .Psi k δ, hw, hs, h => by
-    rcases inC_psi_iff.mp h with h | ⟨hk, hδ, hlt⟩
-    · exact inC_psi_iff.mpr (Or.inl h)
-    · have hP := hw.psi
-      simp only [Tm.size] at hs
-      refine inC_psi_iff.mpr (Or.inr ⟨inC_pred_of_size hy k hP.piF (by omega) hk,
-        inC_pred_of_size hy δ hP.aF (by omega) hδ, ?_⟩)
-      rcases le_of_lt_succT hP.aF hy hlt with e | e
-      · subst e; omega
-      · exact e
-
 end MahloOCF.FS

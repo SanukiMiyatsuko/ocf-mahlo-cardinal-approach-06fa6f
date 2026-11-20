@@ -44,8 +44,8 @@ theorem summands_between {c q : Tm} {L₁ L₂ : List Tm} (hc : WNF c) (hq : WNF
 theorem inC_seed_up {q p c x : Tm} (hqF : WNF q) (hpF : WNF p) (hxF : WNF x) (hcF : WNF c)
     (hqp : inC q q p = true) (hqc : Lt q c) (hpx : Le p x) : inC q c x = true :=
   inC_mono_node q q p c x hqp
-    (fun v hv _ hvp => lt_of_lt_of_leY (hqF.of_mem_subs hv) hpF hxF hvp hpx)
-    (fun v hv _ hvq => lt_transY (hqF.of_mem_subs hv) hqF hcF hvq hqc)
+    (fun _ hv _ hvp => lt_of_lt_of_leY (hqF.of_mem_subs hv) hpF hxF hvp hpx)
+    (fun _ hv _ hvq => lt_transY (hqF.of_mem_subs hv) hqF hcF hvq hqc)
 
 /-- 種 `p = Ψ_{Ξ_m(q)}(X')` は `SeedHyp` を満たす -/
 theorem seedHyp_valid {m : Nat} {q X : Tm} (hp : WNF (.Psi (.Xi m q) X)) :
@@ -345,7 +345,6 @@ theorem bigInv_psi_succ_xi_valid {m : Nat} {q X σ : Tm} (ht : WNF (.Psi (.Xi m 
   have hρM : Lt (.Xi m q) (.M m) := xi_lt_M q
   have hX0 : X ≠ .zero := by intro e; rw [e] at hs; cases hs
   have hX'F := predT_WNF hXF hs
-  have hX'0 : predT X ≠ .zero := by intro e; rw [e] at hqX; exact not_lt_zero _ hqX
   have hpF : WNF (.Psi (.Xi m q) (predT X)) := psi_pred_wnf ht hs (fun n d e => by cases e; exact hqX)
   have hpt : Lt (.Psi (.Xi m q) (predT X)) (.Psi (.Xi m q) X) := lt_psi_psi_same.mpr (lt_predT hXF hs)
   have hpρ : Lt (.Psi (.Xi m q) (predT X)) (.Xi m q) := lt_psi_targetY hpF

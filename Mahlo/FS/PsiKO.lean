@@ -60,17 +60,10 @@ theorem inv_psi_diag_KO {π X R : Tm} {m : Nat} {pre : List Tm} (ht : WNF (.Psi 
   have hpreN := nfl_append_left hXn
   have hPF := wnf_ofSummands hpreN
   have hR := hXn.1 R (by simp)
-  have hR0 : R ≠ .zero := by intro e; rw [e] at hR; cases hR.2
-  have hRX : R ∈ summands X := by rw [hsX]; simp
   have hRP := hRi.props
   have hMF : WNF (.M m) := hRP.σF
   have hm : 1 ≤ m := hMF.M
   have hSF := WNF.succM hm
-  have hπM : Lt π (.M m) := by
-    rcases triY hπ hMF with h | e | h
-    · exact h
-    · exact absurd e (hπT.notM m)
-    · exact absurd h hMπ
   have hr : (info R).seq.dom = .big (.M m) := hRd
   have hlt : ltB (.M m) π = false := by
     cases e : ltB (.M m) π with
@@ -85,11 +78,8 @@ theorem inv_psi_diag_KO {π X R : Tm} {m : Nat} {pre : List Tm} (ht : WNF (.Psi 
     have h1 : leB (succM m) X = true := by rw [hXe]; exact hold
     exact le_of_ne_gtY hSF hX (leB_iff.mp h1)
   -- 調整 `c`
-  have hk : kAdj π π (.psi π) pre R (info R).seq = .zero := by
-    unfold kAdj; rw [hr]; simp only [hcan, Bool.and_false, Bool.false_eq_true, ↓reduceIte]
   have hfirst : (info R).seq.first = fundBig R .zero := by unfold SeqD.first; rw [hr]; rfl
-  obtain ⟨c, hmk, hadj⟩ := mkApp_plain ht hsX hns hk
-    (by rw [hfirst]; exact hRP.nf .zero WNF.zero hRP.pos)
+  obtain ⟨c, hmk, hadj⟩ := mkApp_plain ht hsX hns ((info R).seq.first)
   rw [hfirst] at hadj
   have hcs : cs π X = .app π (.psi π) pre R (info R).seq zero c := cs_lim_app_M hX hsX hns hmk hr
   have hdom : dom (.Psi π X) = .omega := by

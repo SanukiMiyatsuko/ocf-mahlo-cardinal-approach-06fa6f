@@ -61,12 +61,6 @@ theorem le0 (F : FamBig m q P σ y) {ξ : Tm} (hξ : WNF ξ) (hξσ : Lt ξ σ) 
   · rw [h0]; exact Or.inl rfl
   · exact Or.inr (F.mono .zero ξ WNF.zero hξ (zero_lt h0) hξσ)
 
-theorem mono_le (F : FamBig m q P σ y) {ξ η : Tm} (hξ : WNF ξ) (hη : WNF η) (h : Le ξ η)
-    (hησ : Lt η σ) : Le (y ξ) (y η) := by
-  rcases h with rfl | h
-  · exact Or.inl rfl
-  · exact Or.inr (F.mono ξ η hξ hη h hησ)
-
 end FamBig
 
 /-! ### 近似 `Ξ_m(pre ⊕ (P' # R[ξ]))` の列 -/
@@ -122,7 +116,6 @@ theorem famBig_xa {m : Nat} {q P' R σ : Tm} {pre rest : List Tm} {P : Option Tm
   have hρ := G.ht
   have hPF := G.hPF
   have hpreF := G.hpreF
-  have hRF := G.hRF
   have hRP := hRi.props
   have hσF := hRP.σF
   have hσ0 := hRP.pos
@@ -422,7 +415,6 @@ theorem famBig_vk_succ {m : Nat} {q σ : Tm} {P : Option Tm} (hρ : WNF (.Xi m q
     have G : XG m q s pre (rest ++ [one]) R :=
       ⟨hρ, hsq, hsF, hsR, hsM, Or.inr hsp'⟩
     have hpsum : summands (predT q) = pre ++ R :: rest := by rw [hsp, ← hdl, hsd]
-    have hRp : R ∈ summands (predT q) := by rw [hpsum]; simp
     have hrest' : ∀ c, WNF (.Xi m c) → Lt (.Xi m c) (.Xi m q) → Lt c q →
         ¬ Lt c (ofSummands (pre ++ [R])) → Le (.Xi m c) s := by
       intro c hc _ hcq hcT

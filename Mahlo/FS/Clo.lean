@@ -38,16 +38,6 @@ theorem fr_sub_of_summands {R x y : Tm} (h : ∀ u, u ∈ summands y → u ∈ s
   obtain ⟨u, hu, hfu⟩ := mem_fr_iff.mp hf
   exact mem_fr_iff.mpr ⟨u, h u hu, hfu⟩
 
-/-- `a ⊕ y` の加数は `y` の加数を含む -/
-theorem summands_sub_oadd {a y : Tm} (ha : WNF a) (hy : WNF y) :
-    ∀ u, u ∈ summands y → u ∈ summands (oadd a y) := by
-  intro u hu
-  cases hs : summands y with
-  | nil => rw [hs] at hu; cases hu
-  | cons h r =>
-    rw [summands_oadd hs (nfl_principal (nfl_summands ha)) (nfl_principal (nfl_summands hy))]
-    exact List.mem_append_right _ hu
-
 /-- 前線による `C` への所属：`x ∈ C(g0, R)`、`d ≤ R`、`g0 ≤ g` で、前線（`R` について）が `d` 未満なら
     `x ∈ C(g, d)` -/
 theorem inC_of_fr_lt {x R g0 g d : Tm} (hx : WNF x) (hR : WNF R) (hd : WNF d) (hg0 : WNF g0)
@@ -143,7 +133,7 @@ theorem mem_lfr_psi {σ p a f : Tm} (h : ¬ Lt (.Psi p a) σ) :
   simp only [lfr, h, ↓reduceIte, List.mem_append]
 
 /-- `lfr` の元の前線（`σ` について、節点の）は全体の前線 -/
-theorem fr_of_lfr {σ : Tm} (hσ : WNF σ) : ∀ {x g f : Tm}, WNF x → g ∈ lfr σ x → f ∈ fr σ g →
+theorem fr_of_lfr {σ : Tm} : ∀ {x g f : Tm}, WNF x → g ∈ lfr σ x → f ∈ fr σ g →
     f ∈ fr σ x := by
   intro x
   induction x using size_induction with
@@ -170,7 +160,7 @@ theorem fr_of_lfr {σ : Tm} (hσ : WNF σ) : ∀ {x g f : Tm}, WNF x → g ∈ l
     · exact fr_mem_psi_a hxσ (ih a (by simp only [Tm.size]; omega) hP.aF hg hf)
 
 /-- 前線の元の `lfr` は全体の `lfr` の元以下：`w` が `b` の `R` についての前線の元で `σ ≤ R` -/
-theorem lfr_of_fr {R σ : Tm} (hR : WNF R) (hσ : WNF σ) (hσR : Le σ R) :
+theorem lfr_of_fr {R σ : Tm} (hR : WNF R) (hσ : WNF σ) :
     ∀ {b w f : Tm}, WNF b → w ∈ fr R b → f ∈ lfr σ w → ∃ g, g ∈ lfr σ b ∧ Le f g := by
   intro b
   induction b using size_induction with
@@ -308,46 +298,6 @@ theorem parL_sub : ∀ {x w : Tm}, w ∈ parL x → w ∈ subs x ∧ w.size < x.
 
 theorem parF_mem_subs {x w : Tm} (h : w ∈ parF x) : w ∈ subs x := (parL_sub (parF_sub_parL h)).1
 
-/-- 前線の推移：`w` が `b` の `R` についての前線の元で `σ ≤ R` なら、`w` の `σ` についての前線は
-    `b` の `σ` についての前線 -/
-theorem fr_comp {R σ : Tm} (hR : WNF R) (hσ : WNF σ) (hσR : Le σ R) :
-    ∀ {b w f : Tm}, WNF b → w ∈ fr R b → f ∈ fr σ w → f ∈ fr σ b
-  | .zero, _, _, _, hw, _ | .M _, _, _, _, hw, _ => by simp [fr] at hw
-  | .plus a c, w, f, hb, hw, hf => by
-    obtain ⟨ha, hc, -, -⟩ := hb.plus
-    rw [fr, List.mem_append] at hw ⊢
-    rcases hw with hw | hw
-    · exact Or.inl (fr_comp hR hσ hσR ha hw hf)
-    · exact Or.inr (fr_comp hR hσ hσR hc hw hf)
-  | .Om a, w, f, hb, hw, hf => by
-    rw [fr] at hw ⊢
-    exact fr_comp hR hσ hσR hb.om.1 hw hf
-  | .Xi m a, w, f, hb, hw, hf => by
-    rw [fr] at hw
-    by_cases hlt : Lt (.Xi m a) R
-    · simp only [hlt, ↓reduceIte, List.mem_singleton] at hw
-      subst hw
-      exact hf
-    · simp only [hlt, ↓reduceIte] at hw
-      have hnσ : ¬ Lt (.Xi m a) σ := fun h => hlt (lt_of_lt_of_leY hb hσ hR h hσR)
-      rw [fr]
-      simp only [hnσ, ↓reduceIte]
-      exact fr_comp hR hσ hσR hb.xi.2.1 hw hf
-  | .Psi p a, w, f, hb, hw, hf => by
-    have hP := hb.psi
-    rw [fr] at hw
-    by_cases hlt : Lt (.Psi p a) R
-    · simp only [hlt, ↓reduceIte, List.mem_singleton] at hw
-      subst hw
-      exact hf
-    · simp only [hlt, ↓reduceIte, List.mem_append] at hw
-      have hnσ : ¬ Lt (.Psi p a) σ := fun h => hlt (lt_of_lt_of_leY hb hσ hR h hσR)
-      rw [fr]
-      simp only [hnσ, ↓reduceIte, List.mem_append]
-      rcases hw with hw | hw
-      · exact Or.inl (fr_comp hR hσ hσR hP.piF hw hf)
-      · exact Or.inr (fr_comp hR hσ hσR hP.aF hw hf)
-
 /-- `x ≥ σ` なら、成分の前線の `lfr` は `x` の `lfr` の元以下 -/
 theorem lfr_of_parF {σ x w f : Tm} (hσ : WNF σ) (hx : WNF x) (hxσ : ¬ Lt x σ) (hw : w ∈ parF x)
     (hf : f ∈ lfr σ w) : ∃ g, g ∈ lfr σ x ∧ Le f g := by
@@ -368,7 +318,7 @@ theorem lfr_of_parF {σ x w f : Tm} (hσ : WNF σ) (hx : WNF x) (hxσ : ¬ Lt x 
     have hxM : Lt (.Xi j b) (.M j) := lt_of_lev_lt' (by simp only [lev]; omega)
     have hσM : Le σ (.M j) :=
       Or.inr (lt_of_le_of_ltY hσ hx hMF (le_of_not_ltY hx hσ hxσ) hxM)
-    obtain ⟨g, hg, hfg⟩ := lfr_of_fr hMF hσ hσM hbF hw hf
+    obtain ⟨g, hg, hfg⟩ := lfr_of_fr hMF hσ hbF hw hf
     exact ⟨g, (mem_lfr_xi hxσ).mpr hg, hfg⟩
   | Psi ρ a =>
     have hP := hx.psi
@@ -376,40 +326,10 @@ theorem lfr_of_parF {σ x w f : Tm} (hσ : WNF σ) (hx : WNF x) (hxσ : ¬ Lt x 
       Or.inr (lt_of_le_of_ltY hσ hx hP.piF (le_of_not_ltY hx hσ hxσ) (lt_psi_targetY hx))
     simp only [parF, List.mem_append] at hw
     rcases hw with hw | hw
-    · obtain ⟨g, hg, hfg⟩ := lfr_of_fr hP.piF hσ hσρ hP.aF hw hf
+    · obtain ⟨g, hg, hfg⟩ := lfr_of_fr hP.piF hσ hP.aF hw hf
       exact ⟨g, (mem_lfr_psi hxσ).mpr (Or.inr hg), hfg⟩
-    · obtain ⟨g, hg, hfg⟩ := lfr_of_fr hP.piF hσ hσρ hP.piF hw hf
+    · obtain ⟨g, hg, hfg⟩ := lfr_of_fr hP.piF hσ hP.piF hw hf
       exact ⟨g, (mem_lfr_psi hxσ).mpr (Or.inl hg), hfg⟩
-
-/-- `x ≥ σ` なら、成分の前線の `σ` についての前線は `x` の `σ` についての前線 -/
-theorem fr_of_parF {σ x w f : Tm} (hσ : WNF σ) (hx : WNF x) (hxσ : ¬ Lt x σ) (hw : w ∈ parF x)
-    (hf : f ∈ fr σ w) : f ∈ fr σ x := by
-  cases x with
-  | zero | M _ => simp [parF] at hw
-  | plus a b =>
-    simp only [parF, List.mem_cons, List.not_mem_nil, or_false] at hw
-    rcases hw with rfl | rfl
-    · exact fr_mem_plus_l hf
-    · exact fr_mem_plus_r hf
-  | Om e =>
-    simp only [parF, List.mem_singleton] at hw
-    subst hw
-    exact fr_mem_om hf
-  | Xi j b =>
-    obtain ⟨hj, hbF, -, -⟩ := hx.xi
-    have hMF := WNF.M' hj
-    have hxM : Lt (.Xi j b) (.M j) := lt_of_lev_lt' (by simp only [lev]; omega)
-    have hσM : Le σ (.M j) :=
-      Or.inr (lt_of_le_of_ltY hσ hx hMF (le_of_not_ltY hx hσ hxσ) hxM)
-    exact fr_mem_xi hxσ (fr_comp hMF hσ hσM hbF hw hf)
-  | Psi ρ a =>
-    have hP := hx.psi
-    have hσρ : Le σ ρ :=
-      Or.inr (lt_of_le_of_ltY hσ hx hP.piF (le_of_not_ltY hx hσ hxσ) (lt_psi_targetY hx))
-    simp only [parF, List.mem_append] at hw
-    rcases hw with hw | hw
-    · exact fr_mem_psi_a hxσ (fr_comp hP.piF hσ hσρ hP.aF hw hf)
-    · exact fr_mem_psi_p hxσ (fr_comp hP.piF hσ hσρ hP.piF hw hf)
 
 /-! ### 崩壊への移し替えの一歩 -/
 

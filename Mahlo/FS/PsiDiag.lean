@@ -15,10 +15,11 @@ open Tm
 
 /-! ### 近似の標準形 -/
 
-/-- 添字 `ξ` と `σ` の始点が `C(A, Ψ_π(A))` に入れば、近似 `Ψ_π(A)`（`A = pre ⊕ (c ⊕ R[ξ])`）は標準形 -/
-theorem approx_nf {π X R σ c ξ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
-    (hsX : summands X = pre ++ [R]) (hRi : BigInv R σ) (hadj : AdjOK π pre R (fundBig R .zero) c)
-    (hξ : WNF ξ) (hξσ : Lt ξ σ)
+/-- 添字 `ξ` と `σ` の始点が `C(A, Ψ_π(A))` に入れば、近似 `Ψ_π(A)`（`A = pre ⊕ (c ⊕ R[ξ])`）は標準形
+    （調整 `c` は `x0 ≤ R[ξ]` で有効） -/
+theorem approx_nf_x0 {π X R σ c ξ x0 : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
+    (hsX : summands X = pre ++ [R]) (hRi : BigInv R σ) (hadj : AdjOK π pre R x0 c)
+    (hξ : WNF ξ) (hξσ : Lt ξ σ) (hx0 : Le x0 (fundBig R ξ))
     (hC : inC ξ (apx pre c (fundBig R ξ)) (.Psi π (apx pre c (fundBig R ξ))) = true)
     (hB : inC (base σ) (apx pre c (fundBig R ξ)) (.Psi π (apx pre c (fundBig R ξ))) = true) :
     WNF (.Psi π (apx pre c (fundBig R ξ))) := by
@@ -32,18 +33,30 @@ theorem approx_nf {π X R σ c ξ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
   have hRX : R ∈ summands X := by rw [hsX]; simp
   have hRP := hRi.props
   have hxF := hRP.nf ξ hξ hξσ
-  have hmono0 : Le (fundBig R .zero) (fundBig R ξ) := by
-    by_cases h0 : ξ = .zero
-    · rw [h0]; exact Or.inl rfl
-    · exact Or.inr (hRP.mono .zero ξ WNF.zero hξ (zero_lt h0) hξσ)
   obtain ⟨hAF, -, -, h4, hsC⟩ := approx_core (π := π) ht hsX hadj.cF hadj.cR hxF
     (hRP.lt ξ hξ hξσ) (fun v hv hne hlt => hRi.gapP hR.2 ξ v hξ hξσ hv hne hlt) (hRi.pos ξ hξ hξσ)
-  have hval := hadj.valid _ hxF hmono0
+  have hval := hadj.valid _ hxF hx0
   refine approx_wnf ht hsX hadj.cF hxF hAF hsC hval (approx_cC ht hadj hxF hPF hAF hval h4) ?_
   by_cases hA0 : apx pre c (fundBig R ξ) = .zero
-  · have hx0 := (oadd_eq_zero hadj.cF hxF (oadd_eq_zero hPF (wnf_oadd hadj.cF hxF) hA0).2).2
-    rw [hx0]; exact inC_zero _ _
+  · have hx0' := (oadd_eq_zero hadj.cF hxF (oadd_eq_zero hPF (wnf_oadd hadj.cF hxF) hA0).2).2
+    rw [hx0']; exact inC_zero _ _
   · exact hRi.ub _ _ ξ hAF hA0 (cut_psi hπ hT hAF) hξ hξσ hB (hsC R hRX) hC
+
+/-- `R[0] ≤ R[ξ]` -/
+theorem fundBig_zero_le {R σ ξ : Tm} (hRP : BigProps R σ) (hξ : WNF ξ) (hξσ : Lt ξ σ) :
+    Le (fundBig R .zero) (fundBig R ξ) := by
+  by_cases h0 : ξ = .zero
+  · rw [h0]; exact Or.inl rfl
+  · exact Or.inr (hRP.mono .zero ξ WNF.zero hξ (zero_lt h0) hξσ)
+
+/-- 添字 `ξ` と `σ` の始点が `C(A, Ψ_π(A))` に入れば、近似 `Ψ_π(A)`（`A = pre ⊕ (c ⊕ R[ξ])`）は標準形 -/
+theorem approx_nf {π X R σ c ξ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
+    (hsX : summands X = pre ++ [R]) (hRi : BigInv R σ) (hadj : AdjOK π pre R (fundBig R .zero) c)
+    (hξ : WNF ξ) (hξσ : Lt ξ σ)
+    (hC : inC ξ (apx pre c (fundBig R ξ)) (.Psi π (apx pre c (fundBig R ξ))) = true)
+    (hB : inC (base σ) (apx pre c (fundBig R ξ)) (.Psi π (apx pre c (fundBig R ξ))) = true) :
+    WNF (.Psi π (apx pre c (fundBig R ξ))) :=
+  approx_nf_x0 ht hsX hRi hadj hξ hξσ (fundBig_zero_le hRi.props hξ hξσ) hC hB
 
 /-! ### 添字の列による近似の列 -/
 
@@ -58,11 +71,11 @@ theorem psi_form_dec (π x : Tm) : (∃ a, x = .Psi π a) ∨ ¬ ∃ a, x = .Psi
 
 /-- 添字の列 `γ` による近似 `Ψ_π(pre ⊕ (c ⊕ R[γ_n]))` の列の不変量（2 点の上界で、`σ` の始点は
 `C(g, d)` に入るか添字以下） -/
-theorem natInv_psi_idx' {π X R σ c : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
+theorem natInv_psi_idx_x0' {π X R σ c x0 : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
     (hsX : summands X = pre ++ [R]) (hRi : BigInv R σ)
-    (hadj : AdjOK π pre R (fundBig R .zero) c)
+    (hadj : AdjOK π pre R x0 c)
     (γ : Nat → Tm) (hγF : ∀ n, WNF (γ n)) (hγσ : ∀ n, Lt (γ n) σ)
-    (hγm : ∀ n, Lt (γ n) (γ (n + 1)))
+    (hγm : ∀ n, Lt (γ n) (γ (n + 1))) (hx0 : ∀ n, Le x0 (fundBig R (γ n)))
     (hf : ∀ n, fundNat (.Psi π X) n = .Psi π (apx pre c (fundBig R (γ n))))
     (hC : ∀ n, inC (γ n) (apx pre c (fundBig R (γ n))) (.Psi π (apx pre c (fundBig R (γ n)))) = true)
     (hB : ∀ n, inC (base σ) (apx pre c (fundBig R (γ n)))
@@ -79,8 +92,6 @@ theorem natInv_psi_idx' {π X R σ c : Tm} {pre : List Tm} (ht : WNF (.Psi π X)
     NatInv (.Psi π X) := by
   have hP := ht.psi
   have hX := hP.aF
-  have hπ := hP.piF
-  have hT := hP.tgt
   have hXn : NFL (pre ++ [R]) := by rw [← hsX]; exact nfl_summands hX
   have hPF := wnf_ofSummands (nfl_append_left hXn)
   have hR := hXn.1 R (by simp)
@@ -92,7 +103,7 @@ theorem natInv_psi_idx' {π X R σ c : Tm} {pre : List Tm} (ht : WNF (.Psi π X)
     (hRi.pos (γ n) (hγF n) (hγσ n))
   have hA'F : ∀ n, WNF (oadd c (fundBig R (γ n))) := fun n => wnf_oadd hadj.cF (hxF n)
   have hyF : ∀ n, WNF (.Psi π (apx pre c (fundBig R (γ n)))) := fun n =>
-    approx_nf ht hsX hRi hadj (hγF n) (hγσ n) (hC n) (hB n)
+    approx_nf_x0 ht hsX hRi hadj (hγF n) (hγσ n) (hx0 n) (hC n) (hB n)
   have hAmono : ∀ n, Lt (apx pre c (fundBig R (γ n))) (apx pre c (fundBig R (γ (n + 1)))) :=
     fun n => oadd_lt_oadd hPF (hA'F n) (hA'F (n + 1))
       (oadd_lt_oadd hadj.cF (hxF n) (hxF (n + 1))
@@ -150,6 +161,54 @@ theorem natInv_psi_idx' {π X R σ c : Tm} {pre : List Tm} (ht : WNF (.Psi π X)
     exact approx_gap ht (core n).2.2.1 (core n).2.2.2.1 v hv hne hvt
 
 /-- 添字の列 `γ` による近似 `Ψ_π(pre ⊕ (c ⊕ R[γ_n]))` の列の不変量 -/
+theorem natInv_psi_idx_x0 {π X R σ c x0 : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
+    (hsX : summands X = pre ++ [R]) (hRi : BigInv R σ)
+    (hadj : AdjOK π pre R x0 c)
+    (γ : Nat → Tm) (hγF : ∀ n, WNF (γ n)) (hγσ : ∀ n, Lt (γ n) σ)
+    (hγm : ∀ n, Lt (γ n) (γ (n + 1))) (hx0 : ∀ n, Le x0 (fundBig R (γ n)))
+    (hf : ∀ n, fundNat (.Psi π X) n = .Psi π (apx pre c (fundBig R (γ n))))
+    (hC : ∀ n, inC (γ n) (apx pre c (fundBig R (γ n))) (.Psi π (apx pre c (fundBig R (γ n)))) = true)
+    (hB : ∀ n, inC (base σ) (apx pre c (fundBig R (γ n)))
+      (.Psi π (apx pre c (fundBig R (γ n)))) = true)
+    (hub : ∀ g d, WNF g → g ≠ .zero → Cut d → inC (.Psi π X) g d = true → ¬ Lt (.Psi π X) d →
+      inC (base σ) g d = true ∧ ∀ n, inC (γ n) g d = true)
+    (hcof : ∀ a a' N, WNF (.Psi π a) → WNF a' → Lt a X → summands a = pre ++ summands a' →
+      Lt a' R → (∀ w, w ∈ fr π a → Lt w (.Psi π (apx pre c (fundBig R (γ N))))) →
+      ∃ m, Lt a' (fundBig R (γ m)))
+    (hub2 : ∀ g d n, WNF g → g ≠ .zero → Cut d →
+      inC (.Psi π (apx pre c (fundBig R (γ (n + 1))))) g d = true →
+      ¬ Lt (.Psi π (apx pre c (fundBig R (γ (n + 1))))) d →
+      inC (base σ) g d = true ∧ inC (γ n) g d = true) :
+    NatInv (.Psi π X) :=
+  natInv_psi_idx_x0' ht hsX hRi hadj γ hγF hγσ hγm hx0 hf hC hB hub hcof
+    (fun g d n hg hg0 hd hC' hlt => ⟨Or.inl (hub2 g d n hg hg0 hd hC' hlt).1,
+      (hub2 g d n hg hg0 hd hC' hlt).2⟩)
+
+/-- 添字の列 `γ` による近似の列の不変量（調整 `c` は `R[0]` 以上で有効、2 点の上界で `σ` の始点は
+`C(g, d)` に入るか添字以下） -/
+theorem natInv_psi_idx' {π X R σ c : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
+    (hsX : summands X = pre ++ [R]) (hRi : BigInv R σ)
+    (hadj : AdjOK π pre R (fundBig R .zero) c)
+    (γ : Nat → Tm) (hγF : ∀ n, WNF (γ n)) (hγσ : ∀ n, Lt (γ n) σ)
+    (hγm : ∀ n, Lt (γ n) (γ (n + 1)))
+    (hf : ∀ n, fundNat (.Psi π X) n = .Psi π (apx pre c (fundBig R (γ n))))
+    (hC : ∀ n, inC (γ n) (apx pre c (fundBig R (γ n))) (.Psi π (apx pre c (fundBig R (γ n)))) = true)
+    (hB : ∀ n, inC (base σ) (apx pre c (fundBig R (γ n)))
+      (.Psi π (apx pre c (fundBig R (γ n)))) = true)
+    (hub : ∀ g d, WNF g → g ≠ .zero → Cut d → inC (.Psi π X) g d = true → ¬ Lt (.Psi π X) d →
+      inC (base σ) g d = true ∧ ∀ n, inC (γ n) g d = true)
+    (hcof : ∀ a a' N, WNF (.Psi π a) → WNF a' → Lt a X → summands a = pre ++ summands a' →
+      Lt a' R → (∀ w, w ∈ fr π a → Lt w (.Psi π (apx pre c (fundBig R (γ N))))) →
+      ∃ m, Lt a' (fundBig R (γ m)))
+    (hub2 : ∀ g d n, WNF g → g ≠ .zero → Cut d →
+      inC (.Psi π (apx pre c (fundBig R (γ (n + 1))))) g d = true →
+      ¬ Lt (.Psi π (apx pre c (fundBig R (γ (n + 1))))) d →
+      (inC (base σ) g d = true ∨ Le (base σ) (γ n)) ∧ inC (γ n) g d = true) :
+    NatInv (.Psi π X) :=
+  natInv_psi_idx_x0' ht hsX hRi hadj γ hγF hγσ hγm
+    (fun n => fundBig_zero_le hRi.props (hγF n) (hγσ n)) hf hC hB hub hcof hub2
+
+/-- 添字の列 `γ` による近似 `Ψ_π(pre ⊕ (c ⊕ R[γ_n]))` の列の不変量（調整 `c` は `R[0]` 以上で有効） -/
 theorem natInv_psi_idx {π X R σ c : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
     (hsX : summands X = pre ++ [R]) (hRi : BigInv R σ)
     (hadj : AdjOK π pre R (fundBig R .zero) c)
@@ -169,9 +228,8 @@ theorem natInv_psi_idx {π X R σ c : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
       ¬ Lt (.Psi π (apx pre c (fundBig R (γ (n + 1))))) d →
       inC (base σ) g d = true ∧ inC (γ n) g d = true) :
     NatInv (.Psi π X) :=
-  natInv_psi_idx' ht hsX hRi hadj γ hγF hγσ hγm hf hC hB hub hcof
-    (fun g d n hg hg0 hd hC' hlt => ⟨Or.inl (hub2 g d n hg hg0 hd hC' hlt).1,
-      (hub2 g d n hg hg0 hd hC' hlt).2⟩)
+  natInv_psi_idx_x0 ht hsX hRi hadj γ hγF hγσ hγm
+    (fun n => fundBig_zero_le hRi.props (hγF n) (hγσ n)) hf hC hB hub hcof hub2
 
 /-! ### 列の記述の評価 -/
 
@@ -244,14 +302,7 @@ theorem inv_psi_diag_in {π X R : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
   have hRP := hRi.props
   have hr : (info R).seq.dom = .big π := hRd
   have hfirst : (info R).seq.first = fundBig R .zero := by unfold SeqD.first; rw [hr]; rfl
-  have hk : kAdj π π (.psi π) pre R (info R).seq = .zero := by
-    unfold kAdj
-    rw [hr]
-    cases π with
-    | M m => exact absurd rfl (hπM m)
-    | _ => simp [outsideMode_self hπM]
-  obtain ⟨c, hmk, hadj⟩ := mkApp_plain ht hsX hns hk
-    (by rw [hfirst]; exact hRP.nf .zero WNF.zero hRP.pos)
+  obtain ⟨c, hmk, hadj⟩ := mkApp_plain ht hsX hns ((info R).seq.first)
   rw [hfirst] at hadj
   have hcs : cs π X = .app π (.psi π) pre R (info R).seq zero c :=
     cs_lim_app hX hsX hns hmk (fun σ hd => by

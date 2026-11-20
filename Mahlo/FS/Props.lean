@@ -5,7 +5,7 @@ import Mahlo.FS.CLem
 
 * `NatProps t`：共終数 `ω` の列の性質、`BigProps t σ`：共終数が正則項 `σ` の列の性質、`Props t`：その両方。
 * 和 `a + b`・正則項（`M_n`・`Ω_0`・`Ω_{c+1}`・`Ξ_n(d)`）・`Ω_c`（`c` 極限）の列の性質は、部分項の性質から出る
-  （`props_plus`・`props_reg`・`props_om`）。
+  （`natProps_plus`・`bigProps_plus`・`bigProps_reg`・`natProps_om`・`bigProps_om`）。
 * 全ての標準形の列の性質は、不変量（`Inv.lean`）を強めた帰納法で示す（`inv_all`）。 -/
 
 namespace MahloOCF.FS
@@ -69,11 +69,6 @@ theorem oadd_le_oadd {x y y' : Tm} (hx : WNF x) (hy : WNF y) (hy' : WNF y') (h :
   · exact Or.inl rfl
   · exact Or.inr (oadd_lt_oadd hx hy hy' h)
 
-theorem le_of_lt_or_eq {a b : Tm} (h : Lt a b ∨ a = b) : Le a b := by
-  rcases h with h | h
-  · exact Or.inr h
-  · exact Or.inl h
-
 /-- `a + b` 未満の項は `a` 以下か、`a ⊕ y`（`y < b`） -/
 theorem lt_plus_split {a b x : Tm} (h : WNF (.plus a b)) (hx : WNF x) (hlt : Lt x (.plus a b)) :
     Le x a ∨ ∃ y, WNF y ∧ Lt y b ∧ x = oadd a y := by
@@ -129,10 +124,6 @@ theorem bigProps_plus {a b σ : Tm} (h : WNF (.plus a b)) (hb : BigProps b σ) :
     · obtain ⟨ξ, hξ, hξσ, hle⟩ := hb.cof y hy hyb
       exact ⟨ξ, hξ, hξσ, by rw [fundBig_plus]; exact oadd_le_oadd ha hy (hb.nf ξ hξ hξσ) hle⟩
 
-theorem props_plus {a b : Tm} (h : WNF (.plus a b)) (hb : Props b) : Props (.plus a b) :=
-  ⟨fun hd => natProps_plus h (hb.1 (by rwa [dom_plus] at hd)),
-    fun σ hd => bigProps_plus h (hb.2 σ (by rwa [dom_plus] at hd))⟩
-
 /-! ### 正則項：`σ[ξ] = base σ ⊕ ξ` -/
 
 end MahloOCF.FS
@@ -176,12 +167,6 @@ theorem kTerm_lt_M {n : Nat} (hn : 1 ≤ n) : Lt (kTerm (n - 1)) (.M n) := by
   · exact zero_lt (by intro e; cases e)
   · exact lt_of_lev_lt' (by simp only [lev]; omega)
 
-theorem props_M {n : Nat} (h : WNF (.M n)) : Props (.M n) := by
-  refine ⟨(fun hd => by rw [dom_M] at hd; cases hd), fun σ hd => ?_⟩
-  rw [dom_M] at hd
-  cases hd
-  exact bigProps_reg h rfl (by intro e; cases e) (wnf_kTerm _) (kTerm_lt_M h.M) (fundBig_M n)
-
 theorem isTgt_of_omReg {c : Tm} (hs : omReg c) : IsTgt (.Om c) := by
   rcases hs with rfl | hs
   · exact Or.inl rfl
@@ -193,25 +178,10 @@ theorem wnf_base_om {c : Tm} (h : WNF (.Om c)) (hs : omReg c) : WNF (base (.Om c
 
 theorem base_om_lt (c : Tm) : Lt (base (.Om c)) (.Om c) := lt_psiOm_om_self c .zero
 
-theorem props_om_reg {c : Tm} (h : WNF (.Om c)) (hs : omReg c) : Props (.Om c) := by
-  refine ⟨(fun hd => by rw [dom_om_reg hs] at hd; cases hd), fun σ hd => ?_⟩
-  rw [dom_om_reg hs] at hd
-  cases hd
-  exact bigProps_reg h rfl (by intro e; cases e) (wnf_base_om h hs) (base_om_lt c)
-    (fundBig_om_reg hs)
-
 /-- `Ξ_n(d)` の始点 `Ψ_{Ξ_n(d)}(d+1)` は `Ξ_n(d)` 未満（比較の規則だけで出る） -/
 theorem psi_xi_lt_xi (n : Nat) (d a : Tm) : Lt (.Psi (.Xi n d) a) (.Xi n d) := by
   rw [lt_principal_iff rfl rfl, cmpP_psi_xi (pi := .Xi n d) (m := n) rfl, psiLtXi_eq, cmp_self]
   simp
-
-/-- `Ξ_n(d)` の列（始点 `Ψ_{Ξ_n(d)}(d+1)` が標準形なら） -/
-theorem props_xi {n : Nat} {d : Tm} (h : WNF (.Xi n d)) (hb : WNF (base (.Xi n d))) :
-    Props (.Xi n d) := by
-  refine ⟨(fun hd => by rw [dom_xi] at hd; cases hd), fun σ hd => ?_⟩
-  rw [dom_xi] at hd
-  cases hd
-  exact bigProps_reg h rfl (by intro e; cases e) hb (psi_xi_lt_xi n d _) (fundBig_xi n d)
 
 end MahloOCF.FS
 
@@ -293,9 +263,5 @@ theorem bigProps_om {c σ : Tm} (h : WNF (.Om c)) (hs : ¬ omReg c) (hc : BigPro
     refine ⟨ξ, hξ, hξσ, Or.inr ?_⟩
     rw [fundBig_om_lim hs]
     exact lt_om_succ_of hx heF hOe (hc.nf ξ hξ hξσ) hxe hle
-
-theorem props_om_lim {c : Tm} (h : WNF (.Om c)) (hs : ¬ omReg c) (hc : Props c) : Props (.Om c) :=
-  ⟨fun hd => natProps_om h hs (hc.1 (by rwa [dom_om_lim hs] at hd)),
-    fun σ hd => bigProps_om h hs (hc.2 σ (by rwa [dom_om_lim hs] at hd))⟩
 
 end MahloOCF.FS

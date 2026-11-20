@@ -128,13 +128,11 @@ theorem virtG_spec (hm : 1 ≤ m) : ∀ k, WNF (virtG m (k + 1)) ∧ Lt (virtG m
       | zero => exact WNF.zero
       | succ j => exact (virtG_spec hm j).1
     have hE : WNF (virtE m (k + 1)) := wnf_oadd hψ h1
-    have hEk : WNF (virtE m k) := wnf_oadd hψ hkF
     have hEm : Lt (virtE m k) (virtE m (k + 1)) := oadd_lt_oadd hψ hkF h1 h2
     have hE0 : virtE m (k + 1) ≠ .zero := fun e => by
       have := (oadd_eq_zero hψ h1 e).2
       rw [virtG_succ] at this
       cases this
-    have hcut := cut_psi hS (succM_tgt m) hE
     have hC : inC (virtE m (k + 1)) (virtE m (k + 1)) (.Psi (succM m) (virtE m (k + 1))) = true := by
       refine inC_oadd hψ h1 (inC_of_lt_node (Or.inr ⟨_, _, rfl⟩)
         (lt_psi_psi_same.mpr (zero_lt hE0))) ?_

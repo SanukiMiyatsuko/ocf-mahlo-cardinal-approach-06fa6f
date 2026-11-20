@@ -175,12 +175,16 @@ Compact リポジトリの `Compact/WF` と同じ方法（Rathjen・Arai の区�
   - `X = X' + 1`、`π = Ξ_m(d)`：種 `p = Ψ_π(X')` の上の、`Ξ_m(ξ)`（`ξ < d`）と `Ω` についての閉包（`famSeq`）。
     `d < M_m` なら `p` の上の `Ω` の塔、`d ≥ M_m` なら `Ξ_m` の反復（`p, Ξ_m(p), Ξ_m(Ξ_m(p)), …` など）。
     `X' = d`（底）なら種は目標 `π` の前線の最大の節点。
-  - 極限 `X`：最後の加数 `R` の近似 `Ψ_π(pre ⊕ (c ⊕ R[ν]))`（`c` は引数の下限 `d < ·` のための調整）。`R` の
-    共終数が `π` 未満の正則項 `σ` なら共終数 `σ`、`π` 以上なら添字の列 `γ` で対角化する：
+  - 極限 `X`：最後の加数 `R` の近似 `Ψ_π(pre ⊕ (c ⊕ R[ν]))`（`c` は引数の下限のための調整：下限が
+    `δ = pre ⊕ rt` なら `rt + 1`、そうでなければ `0`）。`R` の共終数が `π` 未満の正則項 `σ` なら共終数 `σ`、
+    `π` 以上なら添字の列 `γ` で対角化する：
     `σ = π` なら値そのもの（`γ_{k+1} = t[k]`）、`σ` が `π` 以外の崩壊先なら `σ` への崩壊の塔
-    `γ_{k+1} = Ψ_σ(pre ⊕ R[γ_k])`、ただし `Ψ_σ(X) < Ψ_π(X)` なら `σ` の族の閉包（`famSeq`、種は目標の前線の最大の
-    節点）で、添字の列の共終数（`ω` か正則項）をそのまま `t` の共終数にする（`iapp`）。`σ = M_m` なら `Ξ_m` の塔
-    （始点は目標の前線の中の閉じた点の最大のもの）、`M_m⁺` を越える引数は仮想的な崩壊 `virtK`。
+    `γ_{k+1} = Ψ_σ(pre ⊕ (c_σ ⊕ R[γ_k]))`（`c_σ` は `σ` の下限のための調整）。ただし `Ψ_σ(X) < Ψ_π(X)` なら
+    添字は `σ = Ξ_k(e)` の族の閉包（`famSeq`）で、種は目標 `π` の前線の中で見える `Ψ_σ(·)` の最大のもの
+    （`σ` の始点 `Ψ_σ(e+1)` 未満・存在しないなら始点、`a2Seed`）。添字の列の共終数（`ω` か正則項）をそのまま
+    `t` の共終数にする（`iapp`）。`σ = M_m` なら `Ξ_m` の塔 `γ_{k+1} = Ξ_m(pre ⊕ R[γ_k])`（始点は目標の前線の中の
+    塔の障害の最大のもの `kTop`、0 から始めた塔が 1 段目でそれを越えるなら `0`）、`M_m⁺` を越える引数は
+    仮想的な崩壊 `virtK`。
 
 `·(n+2)` と始点 `Ψ_{Ω_c}(0)` は、証明に使う「狭義の隙間」（`t` の真の部分項で `t` 未満のものは全ての `t[n]`
 未満）を成り立たせるため（`·(n+1)` だと `ω[0] = 1` が `ω` の真の部分項 `1` に等しくなる）。
@@ -210,8 +214,9 @@ Compact リポジトリの `Compact/WF` と同じ方法（Rathjen・Arai の区�
   未満・単調であること（`lake exe fstest probe 3 1`）：反例なし。
 * 同じ標本で、証明に使う不変量（隙間、正則型の `ξ ≤ t[ξ]`・始点以上・`lbK`・`lbS`）（`lake exe fstest probeInv`）：
   反例なし。
-* 標本の中の Bachmann 性の検査では反例は出なかったが、標本に入らない大きさの `b` で反例がある
-  （`lake exe fstest probeBachCE2`、`BachCE.lean`。下の「Bachmann 性は今の定義では成り立たない」）。
+* Bachmann 性は今の定義で証明済み（下の「Bachmann 性」）。以前の定義では標本に入らない大きさの `b` で反例が
+  あった（下の「見つかった誤り」）。外に足す型で族の閉包を添字にする場合（`PsiFam.lean`）の項 1707 個について、
+  列の性質・添字と `t` の Bachmann 性を確かめる検査（`FSProbe.lean`、`lake exe fsprobe`）：反例なし。
 
 見つかった誤り：
 
@@ -224,6 +229,18 @@ Compact リポジトリの `Compact/WF` と同じ方法（Rathjen・Arai の区�
   （`E = Ψ_{Ω_{M_1+1}}(Ω_1)`、`σ = Ξ_1(E)`、`X = E + σ`、`π = Ξ_1(Ψ_σ(X)+1)` の `Ψ_π(X)` では閉包の共終数が
   `Ω_1`）。添字の列を常に `ω` 型として扱っていたので、`t[n]` が全て等しくなっていた。添字の列の共終数を
   そのまま `t` の共終数にするよう直した（`iapp`）。
+* Bachmann 性の反例 1：外に足す型で `Ψ_σ(X) ≤ t` の対角化（`PsiFam.lean`）の添字を、目標の前線の最大元 `c`
+  （`Ω` について閉じていない）の上の `Ω` の塔にしていた。`σ = Ξ_1(0)`、`P = Ψ_σ(M_1)`、
+  `S1 = Ψ_{Ξ_1(σ+1)}(σ + P + 2)`、`c = Ψ_{Ω_{P+1}}(5)`、`π = Ω_{c+1}`、`t = Ψ_π(S1 + σ)` で、`d = Ψ_{Ω_{P+1}}(ω)`
+  の `b = Ψ_π(S1 + Ω_d)` は `t[0] < b < t` だが、`d[0] = Ψ_{Ω_{P+1}}(2) < c` なので `b[0] < t[0]`。
+* Bachmann 性の反例 2：種を `Ω` について閉じた根の塔の元に上げても足りない。`e = Ψ_{Ω_{M_1+1}}(ω)`、
+  `σ = Ξ_1(e)`、`X = Ψ_{Ω_{M_1+1}}(σ)`、`S = Ψ_σ(X)`、`π = Ω_{f+1}`（`f = Ψ_{Ω_{S+1}}(0)`）の `t = Ψ_π(X)` では、
+  種 `Ω_{S+1}` の上の近似 `y_n = Ξ_1(H + Ω_{S+1})`（`H = e[n]`）の区間に `b = Ψ_{Ξ_1(E)}(E+1)`（`E = H + M_1 + S`、
+  `b[0] = Ξ_1(H + S) < y_n`）が入り、`Ψ_π(Ψ_{Ω_{M_1+1}}(b))` が `t` の Bachmann 性を壊す。種を目標の前線の中で見える
+  `Ψ_σ(·)`（`σ` の族について閉じた点）の最大のもの（`a2Seed`）に直した。添字の列は項 `Ψ_σ(β+1)` の基本列
+  そのものになり、目標の前線は全てその下にある。
+* ほかに Bachmann 性の証明のため、`M_m` への対角化の塔の始点（`kTop`）、外に足す型の塔の調整（`c_σ`）、
+  近似の調整（`0` か `rt + 1`）を整理した。
 
 ### 証明したこと（公理は `propext`・`Quot.sound` だけ）
 
@@ -250,7 +267,7 @@ Compact リポジトリの `Compact/WF` と同じ方法（Rathjen・Arai の区�
 | 外に足す型の塔（`Ψ_π(X) < Ψ_σ(X)` のとき、`γ_{k+1} = Ψ_σ(pre ⊕ R[γ_k])`） | `PsiOut.lean` |
 | 対角化の場合分け（`psiDiagInv_of`） | `PsiAll.lean` |
 | `Ξ_m` の反復の塔 `γ_{k+1} = Ξ_m(pre ⊕ R[γ_k])` の閉包性（`xi_tower_hull`） | `XiIter.lean` |
-| 閉じた点の探索（`maxCl`・`frCl`・`kStart`）の仕様、閉じた点が始点以下の項（`CF`） | `KCl.lean` |
+| 閉じた点の探索（`maxCl`・`frCl`）の仕様、見える閉じた点が全て与えられた点以下の項（`CF`） | `KCl.lean` |
 | `M_m` への対角化で近似が `M_m⁺` 未満（`canonK`）：目標が塔の下にあること・共終性 | `PsiK.lean` |
 | 自然な和の可換性、仮想的な崩壊 `virtK`（`M_m` 未満の全ての標準形がその下にある：`virt_all`） | `Virt.lean` |
 | `M_m` への対角化で近似が `M_m⁺` 以上（`kOld`）、`M_m` への対角化全体（`psiDiagM_proof`） | `PsiKO.lean` |
@@ -258,7 +275,16 @@ Compact リポジトリの `Compact/WF` と同じ方法（Rathjen・Arai の区�
 | `Ψ_{Ξ_m(q)}(X'+1)` で `q < X'`（種 `Ψ_{Ξ_m(q)}(X')` の上の族の閉包） | `XiSucc.lean` |
 | `Ψ_{Ξ_m(q)}(q+1)`（底：種は目標の前線の最大元、`psiXiSuccFloor_proof`） | `XiFloor.lean` |
 | 外に足す型で `Ψ_σ(X) ≤ Ψ_π(X)` の場合（添字は `σ = Ξ_k(e)` の族の閉包、`psiDiagFam_proof`） | `PsiFam.lean` |
-| 全ての標準形の列の不変量（`inv_of`）と、Bachmann 性から `FS NF`（`fsNF`） | `Inst.lean` |
+| 全ての標準形の列の不変量（`inv_of`）と、Bachmann 性を仮定した `FS NF`（`fsNFOf`） | `Inst.lean` |
+| Bachmann 性の梯子（区間の下界 `LBI`）への帰着、0 番目の基本性質 | `Bach.lean` |
+| `LBI` の持ち上げ（和・`Ω`・`Ψ`）と崩壊の 0 番目の評価 | `BachLift.lean`・`BachZ.lean`・`BachPsi.lean`・`BachOm.lean`・`BachReg.lean` |
+| Bachmann 性の強い形 `BInv` の枠組み（崩壊以外の項）と簡単な崩壊 | `BachMain.lean`・`BachMul.lean` |
+| 素の近似・目標そのものへの対角化・外に足す型の塔の `BInv` | `BachArg.lean`・`BachPlain.lean`・`BachDiagIn.lean`・`BachDiagOut.lean` |
+| `Ξ` の持ち上げ、族の閉包 `mahloVK` の梯子（種つきの近似） | `BachXi.lean`・`BachFam.lean`・`BachSeed.lean`・`BachVK.lean` |
+| `Ξ_m(q)` への崩壊の後者の `BInv`（底は構造的な前線の評価 `fr_fs_low`） | `BachFr.lean`・`BachFloor.lean` |
+| `M_m` への対角化の `BInv`（`kOld`・`canonK`） | `BachDiagM.lean` |
+| 外に足す型で族の閉包を添字にする場合の `BInv`（種 `a2Seed`） | `BachA2.lean` |
+| Bachmann 性（`bachHyp_proof`）と仮定なしの `FS NF`（`fsNF`） | `Final.lean` |
 
 正則型の列の不変量 `BigInv` には、共終性を添字で表した `lclo`（`x < t` で `x` の `σ` 未満の極大部分項が添字 `ξ`
 未満なら `x < t[ξ]`）と、`M_m` への対角化で使う下界 `lbK`・`lbS`（共終数 `M_m` で `t > M_m`（`t > M_m⁺`）なら
@@ -271,31 +297,37 @@ Compact リポジトリの `Compact/WF` と同じ方法（Rathjen・Arai の区�
 ない）ので、`σ` の始点 `B = Ψ_σ(e+1)`（標準形）を使う。
 
 * `σ = Ξ_k(e)`（`lev π = k`）で、`B` は `π` の底の条件を満たさない（`a2_shape`）。したがって `B` は全ての
-  `Ψ_π(A)` 未満で、目標 `π` の前線の最大元 `P0` は `B` 以上（`a2_P0`）。
-* 添字は `P0` の上の `Ξ_k(ξ)`（`ξ < e`）の閉包。`e` の加数で `σ` 未満のものは `B` 未満なので、`B ≤ P0 < σ` から
-  種の仮定 `SeedHyp` が出る（`seedHyp_base`）。
-* 共終性：`x = Ψ_π(a) < t` の `a` の `σ` 未満の極大部分項は `C(a, x)` に入り、添字の列の下にある
-  （`hull_nat`・`hull_big`：`x` 未満なら `π` の下、`x` 以上なら成分に分けて族の閉包・`B` で押さえる）。
+  `Ψ_π(A)` 未満。
+* 添字は種 `p = a2Seed σ π`（`π` の前線の中で見える `Ψ_σ(·)` の最大のもの、`B` 以上）の上の `Ξ_k(ξ)`（`ξ < e`）
+  の閉包。`e` の加数で `σ` 未満のものは `B` 未満なので、`B ≤ p < σ` から種の仮定 `SeedHyp` が出る
+  （`seedHyp_base`）。
+* 見える `Ψ_σ(·)` が全て列の下の点 `G` 以下の `σ` 未満の項は、成分に分けて族の閉包・`B`・`G` で押さえられ、
+  添字の列の下にある（`cf_lt_fam_nat`・`cf_lt_fam_big`）。`π` の前線は `G = p`（種）でこれを満たすので、
+  `π` は添字の列の下にある。
+* 共終性：`x = Ψ_π(a) < t` の `a` の `σ` 未満の極大部分項は `C(a, x)` に入る。`C(a, x)` の元の中で見える
+  `Ψ_σ(·)` は `t` 未満なので（`cf_of_inC`）、`G = t` で上の補題が使え、添字の列の下にある（`hull_nat`・`hull_big`）。
 * 2 点の上界 `ub2` の仮定「`σ` の始点が `C(g, d)` に入る」は「`σ` の始点が添字以下」でもよいように弱めた
   （`BigInv.ub2`・`FamBig.ub2`）。
 
-### Bachmann 性は今の定義では成り立たない
+### Bachmann 性（`Bach*.lean`・`Final.lean`）
 
-列の不変量（`inv_of`：標準形・減少・単調・共終など、Bachmann 以外の全ての FS の性質）は仮定なしで示して
-ある。`fsNF` が受け取る仮定 `BachHyp`（`ω` 型の Bachmann 性）は、今の基本列の定義では**偽**である
-（`BachCE.lean` の `not_bachHyp : ¬ BachHyp`、`native_decide` による計算。`lake exe fstest probeBachCE2` でも
-同じ値を出力する）。
+`ω` 型の Bachmann 性 `BachHyp`（`t[n] < b < t ⇒ t[n] ≤ b[0]`）を仮定なしで示した（`bachHyp_proof`）。したがって
+基本列の公理の全て（`omega_bachmann` を含む）を満たす `fsNF : FS NF` は仮定なしで、公理は `propext`・`Quot.sound`
+だけ（`Final.lean` の `#print axioms` の検査）。
 
-* 反例：`σ = Ξ_1(0)`、`P = Ψ_σ(M_1)`、`S1 = Ψ_{Ξ_1(σ+1)}(σ + P + 2)`、`c = Ψ_{Ω_{P+1}}(5)`、`π = Ω_{c+1}`、
-  `t = Ψ_π(S1 + σ)`。外に足す型で `Ψ_σ(X) ≤ t` の対角化（`PsiFam.lean`）で、添字は種 `c`（`π` の前線の最大元）
-  の上の `Ω` の塔 `Ω_{c+1}, Ω_{Ω_{c+1}+1}, …` になり、`t[n] = Ψ_π(S1 + y_n)`。`d = Ψ_{Ω_{P+1}}(ω)` について
-  `b = Ψ_π(S1 + Ω_d)` は `t[0] < b < t` だが、`d[0] = Ψ_{Ω_{P+1}}(2) < c` なので `b[0] < t[0]`。
-* 原因：`Ω` について閉じていない種 `c` の上の塔では、区間 `(c, Ω_{c+1})` に `d[0] < c` となる `d` があり、
-  `Ω_d` が塔の隣り合う項の間に入る。直すには、族の閉包の塔の始点を（種より上の）`Ω` について閉じた点など、
-  Bachmann 性を壊さない点にする必要がある（底の場合 `XiFloor.lean` の塔も、種が前線の元なので同じ点検が要る）。
-
-`Bach.lean` は Bachmann 性を、隣り合う列の項の区間の下界 `LBI (t[n]) (t[n+1])`（区間 `(t[n], t[n+1]]` の
-全ての `b` で `t[n] ≤ b[0]`）に帰着させる（`bachHyp_of_ladder`）。基本列を直した後の証明はこの形で進める。
+* 区間の下界 `LBI x y`（区間 `(x, y]` の全ての標準形 `b` で `x ≤ b[0]`）は推移的で、`ω` 型の項の Bachmann 性は
+  隣り合う項の `LBI (t[n]) (t[n+1])`（梯子）と共終性から出る（`bachHyp_of_ladder`）。
+* 強い形 `BInv t`：`ω` 型なら梯子、共終数が正則項 `σ` なら添字の区間の下界の移送（`ξ ≤ η < σ`、`ξ` は `0` か
+  `σ` の底より大きい主要項で、`LBI ξ η` なら `LBI (t[ξ]) (t[η])`）。項の大きさについての帰納法で示す。
+  崩壊の近似 `Ψ_π(pre ⊕ (c ⊕ R[ν]))` の梯子は、`R` の移送と崩壊の持ち上げ（`lbi_psi_apx`）から出るので、
+  対角化では添字の列の梯子を示せばよい。
+* 添字の列の梯子：`Ω` について閉じた根の上の `Ω` の塔（`lbi_tower`）、`Ξ_m` の近似 `Ξ_m(pre ⊕ R[n] ⊕ P')`
+  （区間に現れる `Ξ_m(E)` の底の 0 番目が下界以上：`lbi_xi`。種 `P'` は族について閉じた点：`SeedPack`）、
+  族の閉包の各枝（`seqLad_mahloVK`）。
+* 最後まで残った 3 つの場合：`Ξ_m(q)` への崩壊の後者（底の種の形 `floor_seed_form` と構造的な前線の評価
+  `fr_fs_low`、`BachFloor.lean`）、`M_m` への対角化（`kOld` の仮想的な塔と `canonK` の塔、`BachDiagM.lean`）、
+  外に足す型で族の閉包を添字にする場合（種 `a2Seed` は `Ψ_σ(β)` なので種つきの近似の枠組みがそのまま使える、
+  `BachA2.lean`）。
 
 ## ファイル
 
@@ -333,7 +365,11 @@ Compact リポジトリの `Compact/WF` と同じ方法（Rathjen・Arai の区�
   `Mahlo/FS/FamBig.lean`：族の閉包 `mahloVK` の列の仕様
 * `Mahlo/FS/XiSucc.lean`・`Mahlo/FS/XiFloor.lean`：`Ξ_m(q)` への崩壊の後者（族の閉包）
 * `Mahlo/FS/PsiFam.lean`：外に足す型で `Ψ_σ(X) ≤ Ψ_π(X)` の対角化（族の閉包を添字にする）
-* `Mahlo/FS/Inst.lean`：全ての標準形の列の不変量と、`FS NF`（Bachmann 性を仮定）
+* `Mahlo/FS/Inst.lean`：全ての標準形の列の不変量と、Bachmann 性を仮定した `FS NF`（`fsNFOf`）
 * `Mahlo/FS/Bach.lean`：Bachmann 性の梯子（区間の下界）への帰着
-* `Mahlo/FS/BachCE.lean`：今の基本列での Bachmann 性の反例（`native_decide`）
-* `FSTest.lean`（`lake exe fstest`）：標本での検査（総当たり・種・かぶせた項）、`FSTime.lean`（`lake exe fstime`）：計時
+* `Mahlo/FS/BachLift.lean`・`BachZ`・`BachPsi`・`BachOm`・`BachReg`・`BachMain`・`BachMul`・`BachArg`・`BachPlain`・
+  `BachDiagIn`・`BachDiagOut`・`BachXi`・`BachFam`・`BachSeed`・`BachVK`・`BachFr`・`BachFloor`・`BachDiagM`・`BachA2`：
+  Bachmann 性の強い形 `BInv` の証明（持ち上げの補題と各場合）
+* `Mahlo/FS/Final.lean`：Bachmann 性（`bachHyp_proof`）と仮定なしの `FS NF`（`fsNF`）
+* `FSTest.lean`（`lake exe fstest`）：標本での検査（総当たり・種・かぶせた項）、`FSTime.lean`（`lake exe fstime`）：計時、
+  `FSProbe.lean`（`lake exe fsprobe`）：個別の場合の検査

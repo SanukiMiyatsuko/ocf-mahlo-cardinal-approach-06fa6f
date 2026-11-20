@@ -170,7 +170,7 @@ theorem below_transfer {π A B : Tm} (hπ : WNF π) (hT : IsTgt π) : ∀ b : Tm
 /-- 単調性：`B ≤ A` なら `b < Ψ_π(B)` から `b < Ψ_π(A)` -/
 theorem below_mono {π A B : Tm} (hπ : WNF π) (hT : IsTgt π) (hA : WNF A) (hB : WNF B)
     (hBA : Le B A) {b : Tm} (hb : WNF b) (h : Lt b (.Psi π B)) : Lt b (.Psi π A) :=
-  below_transfer hπ hT b hb (fun Y hYs hYB =>
+  below_transfer hπ hT b hb (fun _ hYs hYB =>
     lt_of_lt_of_leY (hb.of_mem_subs hYs).psi.aF hB hA hYB hBA) h
 
 /-! ### `Ψ_π(A)` 未満なら `π` 未満 -/

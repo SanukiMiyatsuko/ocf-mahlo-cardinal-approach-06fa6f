@@ -3,8 +3,9 @@ import Mahlo.FS.PsiDiag
 /-! 対角化のうち外に足す型（`R` の共終数 `σ` が `M` でない崩壊先で `π < σ`）で、`Ψ_π(X) < Ψ_σ(X)` の場合。
 
 * `T = Ψ_σ(X)` は標準形（`X ∈ C(X, t)` を `C(X, T)` に移せる）。
-* 添字の塔 `γ_0 = base σ`、`γ_{k+1} = Ψ_σ(pre ⊕ R[γ_k])` は `T` の近似で、全て閉じた点。`T` 未満の項は
-  塔のどこかの下に入る（`cof_nat`・`coll_step`）。
+* 添字の塔 `γ_{k+1} = Ψ_σ(pre ⊕ (c_σ ⊕ R[γ_k]))`（`c_σ` は `σ` への崩壊の有効性の調整）は `T` の近似で、
+  全て閉じた点。始点 `γ_0` は `pre ⊕ R[0]` が `σ` の下限を越えれば `0`、そうでなければ `Ψ_σ(pre ⊕ (c_σ ⊕ R[0]))`。
+  `T` 未満の項は塔のどこかの下に入る（`cof_nat`・`coll_step`）。
 * `x = Ψ_π(a) < t`（`a = pre ⊕ a'`）の `a'` の `σ` 未満の極大部分項は `C(X, T)` に入るので `T` 未満、
   したがって塔の下にあり、`a' < R[γ_m]`（`lclo`）。 -/
 
@@ -136,7 +137,8 @@ theorem outsideMode_ne {π σ : Tm} (hM : ∀ m, σ ≠ .M m) (hne : σ ≠ π) 
 
 theorem gam_out_zero {π σ : Tm} (hM : ∀ m, σ ≠ .M m) (hne : σ ≠ π) (pre : List Tm) (R : Tm)
     (r : SeqD) (c P : Tm) : gam π σ (.psi π) pre R r c P 0 =
-      if validR σ (oadd (ofSummands pre) (r.big .zero)) then .zero else base σ := by
+      if validR σ (oadd (ofSummands pre) (r.big .zero)) then .zero
+      else col σ (oadd (ofSummands pre) (oadd (adjOf σ pre) (r.big .zero))) 0 := by
   cases σ with
   | M m => exact absurd rfl (hM m)
   | _ => simp only [gam, canonK_notM hM, outsideMode_ne hM hne, Bool.false_eq_true, ↓reduceIte]
@@ -144,7 +146,7 @@ theorem gam_out_zero {π σ : Tm} (hM : ∀ m, σ ≠ .M m) (hne : σ ≠ π) (p
 theorem gam_out_succ {π σ : Tm} (hM : ∀ m, σ ≠ .M m) (hne : σ ≠ π) (pre : List Tm) (R : Tm)
     (r : SeqD) (c P : Tm) (k : Nat) :
     gam π σ (.psi π) pre R r c P (k + 1) =
-      col σ (oadd (ofSummands pre) (r.big (gam π σ (.psi π) pre R r c P k))) k := by
+      col σ (oadd (ofSummands pre) (oadd (adjOf σ pre) (r.big (gam π σ (.psi π) pre R r c P k)))) k := by
   cases σ with
   | M m => exact absurd rfl (hM m)
   | _ => simp only [gam, canonK_notM hM, outsideMode_ne hM hne, Bool.false_eq_true, ↓reduceIte]
@@ -161,6 +163,24 @@ theorem nat_app_out {π σ : Tm} (hM : ∀ m, σ ≠ .M m) (hne : σ ≠ π) (pr
       .Psi π (combine (.psi π) pre c .zero (r.big (gam π σ (.psi π) pre R r c .zero n))) := by
   simp only [SeqD.nat, hr, hσπ, Bool.false_eq_true, ↓reduceIte, argOf, canonK_notM hM,
     outsideMode_ne hM hne, Gen.ap]
+
+/-- `mkApp` の調整は `adjOf` -/
+theorem mkApp_adjOf {π : Tm} {pre : List Tm} {R : Tm} {r : SeqD} {c : Tm}
+    (h : mkApp π (.psi π) pre R r .zero .zero = some (.app π (.psi π) pre R r .zero c)) :
+    c = adjOf π pre := by
+  unfold mkApp at h
+  unfold adjOf
+  cases htr : tailRaw (argR? π) pre with
+  | none =>
+    simp only [ne_eq, not_true_eq_false, false_and, ↓reduceIte, Gen.tgt?, htr, Option.some.injEq,
+      SeqD.app.injEq, true_and] at h
+    exact h.symm
+  | some rt =>
+    simp only [ne_eq, not_true_eq_false, false_and, ↓reduceIte, Gen.tgt?, htr] at h
+    split at h
+    · cases h
+    · simp only [Option.some.injEq, SeqD.app.injEq, true_and] at h
+      exact h.symm
 
 /-- 近似 `Ψ_π(pre ⊕ (c ⊕ R[ξ]))` の標準形（調整 `c` の条件を直接与える版） -/
 theorem approx_nf' {π X R σ c ξ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
@@ -191,10 +211,31 @@ theorem approx_nf' {π X R σ c ξ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
 
 /-! ### 外に足す型（`t < Ψ_σ(X)`） -/
 
-theorem inv_psi_diag_out {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
+/-- 外に足す型の塔の性質（Bachmann 性の証明で使う）：`t[n] = Ψ_π(pre ⊕ (c ⊕ R[γ_n]))`、
+    `γ_{k+1} = Ψ_σ(pre ⊕ (c_σ ⊕ R[γ_k]))`、`γ_0` は `0` か `Ψ_σ(pre ⊕ (c_σ ⊕ R[0]))`、添字は `0` か `σ` の底より
+    大きい主要項 -/
+structure OutTower (π X R σ : Tm) (pre : List Tm) (c cσ : Tm) (γ : Nat → Tm) : Prop where
+  hTF : WNF (.Psi σ X)
+  hdom : dom (.Psi π X) = .omega
+  hmk : mkApp π (.psi π) pre R (info R).seq .zero .zero =
+    some (.app π (.psi π) pre R (info R).seq .zero c)
+  adj : AdjOK π pre R (fundBig R .zero) c
+  hmkσ : mkApp σ (.psi σ) pre R (info R).seq .zero .zero =
+    some (.app σ (.psi σ) pre R (info R).seq .zero cσ)
+  adjσ : AdjOK σ pre R .zero cσ
+  f : ∀ n, fundNat (.Psi π X) n = .Psi π (apx pre c (fundBig R (γ n)))
+  γF : ∀ n, WNF (γ n)
+  γσ : ∀ n, Lt (γ n) σ
+  γ0 : γ 0 = .zero ∨ γ 0 = .Psi σ (apx pre cσ (fundBig R .zero))
+  hcol : ∀ n, γ (n + 1) = .Psi σ (apx pre cσ (fundBig R (γ n)))
+  γm : ∀ n, Lt (γ n) (γ (n + 1))
+  adm : ∀ n, γ n = .zero ∨ (isPrincipal (γ n) = true ∧ Lt (base σ) (γ n))
+
+theorem inv_psi_diag_out_full {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
     (hsX : summands X = pre ++ [R]) (hns : ¬ isSucc X = true)
     (hRd : dom R = .big σ) (hRi : BigInv R σ) (hπσ : Lt π σ) (hσM : ∀ m, σ ≠ .M m)
-    (hT : Lt (.Psi π X) (.Psi σ X)) : Inv (.Psi π X) := by
+    (hT : Lt (.Psi π X) (.Psi σ X)) :
+    Inv (.Psi π X) ∧ ∃ c cσ γ, OutTower π X R σ pre c cσ γ := by
   have hP := ht.psi
   have hX := hP.aF
   have hπ := hP.piF
@@ -202,7 +243,6 @@ theorem inv_psi_diag_out {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
   have hXn : NFL (pre ++ [R]) := by rw [← hsX]; exact nfl_summands hX
   have hPF := wnf_ofSummands (nfl_append_left hXn)
   have hR := hXn.1 R (by simp)
-  have hR0 : R ≠ .zero := by intro e; rw [e] at hR; cases hR.2
   have hRX : R ∈ summands X := by rw [hsX]; simp
   have hRP := hRi.props
   have hσF := hRP.σF
@@ -230,14 +270,8 @@ theorem inv_psi_diag_out {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
     rw [hb0e]; intro he; simp [isSucc, summands, one] at he; exact hσ0 he.1
   have hb_pos : Lt .zero (base σ) := by rw [hb0e]; exact zero_lt (by intro e; cases e)
   -- 列の記述
-  have hk : kAdj π π (.psi π) pre R (info R).seq = .zero := by
-    unfold kAdj; rw [hr]
-    cases σ with
-    | M m => exact absurd rfl (hσM m)
-    | _ => rfl
   have hfirst : (info R).seq.first = fundBig R .zero := by unfold SeqD.first; rw [hr]; rfl
-  obtain ⟨c, hmk, hadj⟩ := mkApp_plain ht hsX hns hk
-    (by rw [hfirst]; exact hRP.nf .zero WNF.zero hRP.pos)
+  obtain ⟨c, hmk, hadj⟩ := mkApp_plain ht hsX hns ((info R).seq.first)
   rw [hfirst] at hadj
   have hTt : ltB (.Psi σ (oadd (ofSummands pre) R)) (.Psi π (oadd (ofSummands pre) R)) = false := by
     rw [← hXe]
@@ -252,12 +286,17 @@ theorem inv_psi_diag_out {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
     | true => exact absurd (ltB_iff.mp e) (Lt.asymmY hπ hσF hπσ)
   have hdom : dom (.Psi π X) = .omega := by
     rw [dom_psi, hcs]; simp only [SeqD.dom, hr, hσπB, Bool.false_eq_true, ↓reduceIte]
+  -- `σ` への崩壊の近似の調整 `c_σ`（`σ = Ξ_m(e)`、`e = pre ⊕ rt` なら `rt + 1`）
+  obtain ⟨cσ, hmkσ, hadjσ⟩ := mkApp_plain (r := (info R).seq) hTF hsX hns .zero
+  have hcσe : adjOf σ pre = cσ := (mkApp_adjOf hmkσ).symm
+  have hcσF := hadjσ.cF
   -- 塔
   obtain ⟨γ, hγdef⟩ : ∃ γ : Nat → Tm, γ = gam π σ (.psi π) pre R (info R).seq c .zero := ⟨_, rfl⟩
-  have hγ0 : γ 0 = if validR σ (oadd (ofSummands pre) (fundBig R .zero)) then .zero else base σ := by
-    rw [hγdef]; exact gam_out_zero hσM hσne _ _ _ _ _
-  have hγS : ∀ n, γ (n + 1) = col σ (oadd (ofSummands pre) (fundBig R (γ n))) n := by
-    intro n; rw [hγdef]; exact gam_out_succ hσM hσne _ _ _ _ _ n
+  have hγ0 : γ 0 = if validR σ (oadd (ofSummands pre) (fundBig R .zero)) then .zero
+      else col σ (apx pre cσ (fundBig R .zero)) 0 := by
+    rw [hγdef, ← hcσe]; exact gam_out_zero hσM hσne _ _ _ _ _
+  have hγS : ∀ n, γ (n + 1) = col σ (apx pre cσ (fundBig R (γ n))) n := by
+    intro n; rw [hγdef, ← hcσe]; exact gam_out_succ hσM hσne _ _ _ _ _ n
   have hfN : ∀ n, fundNat (.Psi π X) n =
       .Psi π (combine (.psi π) pre c .zero (fundBig R (γ n))) := by
     intro n; rw [fundNat_psi, hcs, hγdef]; exact nat_app_out hσM hσne _ _ _ _ hr hσπB n
@@ -267,24 +306,45 @@ theorem inv_psi_diag_out {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
     fundBig_ne_zero hRi hσM hξ hξσ
   have hBF : ∀ ξ, WNF ξ → Lt ξ σ → WNF (oadd (ofSummands pre) (fundBig R ξ)) :=
     fun ξ hξ hξσ => wnf_oadd hPF (hxF ξ hξ hξσ)
-  have hBX : ∀ ξ, WNF ξ → Lt ξ σ → Lt (oadd (ofSummands pre) (fundBig R ξ)) X := by
-    intro ξ hξ hξσ
-    have := oadd_lt_oadd hPF (hxF ξ hξ hξσ) hR.1 (hRP.lt ξ hξ hξσ)
-    rw [← hXe] at this; exact this
   have hpreB : ∀ ξ, WNF ξ → Lt ξ σ → Lt (ofSummands pre) (oadd (ofSummands pre) (fundBig R ξ)) :=
     fun ξ hξ hξσ => lt_oadd_left hPF (hxF ξ hξ hξσ) (hx0 ξ hξ hξσ)
-  have hBns : ∀ ξ, WNF ξ → Lt ξ σ → ¬ isSucc ξ = true →
-      ¬ isSucc (oadd (ofSummands pre) (fundBig R ξ)) = true := by
+  -- `σ` への崩壊の近似 `A ξ = pre ⊕ (c_σ ⊕ R[ξ])`
+  have hCσF : ∀ ξ, WNF ξ → Lt ξ σ → WNF (oadd cσ (fundBig R ξ)) := fun ξ hξ hξσ =>
+    wnf_oadd hcσF (hxF ξ hξ hξσ)
+  have hCσ0 : ∀ ξ, WNF ξ → Lt ξ σ → oadd cσ (fundBig R ξ) ≠ .zero := fun ξ hξ hξσ e =>
+    hx0 ξ hξ hξσ (oadd_eq_zero hcσF (hxF ξ hξ hξσ) e).2
+  have hCσR : ∀ ξ, WNF ξ → Lt ξ σ → Lt (oadd cσ (fundBig R ξ)) R := fun ξ hξ hξσ =>
+    oadd_lt_prin hcσF (hxF ξ hξ hξσ) hR.2 hadjσ.cR (hRP.lt ξ hξ hξσ)
+  have hAσF : ∀ ξ, WNF ξ → Lt ξ σ → WNF (apx pre cσ (fundBig R ξ)) := fun ξ hξ hξσ =>
+    wnf_oadd hPF (hCσF ξ hξ hξσ)
+  have hAσ0 : ∀ ξ, WNF ξ → Lt ξ σ → apx pre cσ (fundBig R ξ) ≠ .zero := fun ξ hξ hξσ e =>
+    hCσ0 ξ hξ hξσ (oadd_eq_zero hPF (hCσF ξ hξ hξσ) e).2
+  have hAσns : ∀ ξ, WNF ξ → Lt ξ σ → ¬ isSucc ξ = true →
+      ¬ isSucc (apx pre cσ (fundBig R ξ)) = true := by
     intro ξ hξ hξσ hns'
-    rw [isSucc_oadd hPF (hxF ξ hξ hξσ) (hx0 ξ hξ hξσ)]
+    show ¬ isSucc (oadd (ofSummands pre) (oadd cσ (fundBig R ξ))) = true
+    rw [isSucc_oadd hPF (hCσF ξ hξ hξσ) (hCσ0 ξ hξ hξσ),
+      isSucc_oadd hcσF (hxF ξ hξ hξσ) (hx0 ξ hξ hξσ)]
     exact hRi.nsucc ξ hξ hξσ hns' (Or.inr hσ0)
-  -- `σ = Ξ_m(e)` なら `e < pre ⊕ R[ξ]`（`ξ ≥ base σ`）
+  have hAσX : ∀ ξ, WNF ξ → Lt ξ σ → Lt (apx pre cσ (fundBig R ξ)) X := by
+    intro ξ hξ hξσ
+    have := oadd_lt_oadd hPF (hCσF ξ hξ hξσ) hR.1 (hCσR ξ hξ hξσ)
+    rw [← hXe] at this; exact this
+  have hBAσ : ∀ ξ, WNF ξ → Lt ξ σ →
+      Le (oadd (ofSummands pre) (fundBig R ξ)) (apx pre cσ (fundBig R ξ)) := fun ξ hξ hξσ =>
+    oadd_le_oadd hPF (hxF ξ hξ hξσ) (hCσF ξ hξ hξσ) (le_oadd_right hcσF (hxF ξ hξ hξσ))
+  have hpreA : ∀ ξ, WNF ξ → Lt ξ σ → Lt (ofSummands pre) (apx pre cσ (fundBig R ξ)) :=
+    fun ξ hξ hξσ => lt_of_lt_of_leY hPF (hBF ξ hξ hξσ) (hAσF ξ hξ hξσ) (hpreB ξ hξ hξσ) (hBAσ ξ hξ hξσ)
+  have hvalσ : ∀ ξ, WNF ξ → Lt ξ σ → validR σ (apx pre cσ (fundBig R ξ)) = true := fun ξ hξ hξσ =>
+    hadjσ.valid _ (hxF ξ hξ hξσ) (zero_le _)
+  -- `σ = Ξ_m(e)` なら `e < X`
   have heX : ∀ e, argR? σ = some e → Lt e X := by
     intro e he
     obtain ⟨m, rfl⟩ := argR_some he
     rcases inC_xi_iff.mp hσC with h | ⟨-, h⟩
     · exact absurd h (Lt.asymmY ht hσF hσt)
     · exact h
+  -- `ξ ≥ base σ` なら `e < pre ⊕ R[ξ]`
   have hvalid : ∀ ξ, WNF ξ → Lt ξ σ → Le (base σ) ξ → ∀ e, argR? σ = some e →
       Lt e (oadd (ofSummands pre) (fundBig R ξ)) := by
     intro ξ hξ hξσ hbξ e he
@@ -314,73 +374,89 @@ theorem inv_psi_diag_out {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
     · exact lt_psi_psi_same.mpr (zero_lt hB0)
     · exact lt_psi_psi_same.mpr (zero_lt hB0)
     · exact lt_psi_psi_same.mpr (succT_lt_of_not_succ hσF.xi.2.1 hB hBs (hv e rfl))
-  -- `Ψ_σ(B ξ)` は標準形
+  -- 近似 `A ξ` の `c_σ ⊕ R[ξ]` は、`Ψ_σ(A ξ)` を添字とする `R` の項の下
+  have hAnext : ∀ ξ, WNF ξ → Lt ξ σ → WNF (.Psi σ (apx pre cσ (fundBig R ξ))) →
+      Lt (oadd cσ (fundBig R ξ)) (fundBig R (.Psi σ (apx pre cσ (fundBig R ξ)))) := by
+    intro ξ hξ hξσ hyF
+    have hyσ : Lt (.Psi σ (apx pre cσ (fundBig R ξ))) σ := lt_psi_targetY hyF
+    obtain ⟨-, hyC⟩ := inC_oadd_pre hXn (hCσF ξ hξ hξσ) (hCσR ξ hξ hξσ) hyF.psi.Ca
+    refine hRi.lclo _ _ (hCσF ξ hξ hξσ) (hCσR ξ hξ hξσ) hyF (zero_lt (by intro e; cases e)) hyσ
+      (fun f hf => ?_)
+    have hfF := (hCσF ξ hξ hξσ).of_mem_subs (lfr_spec hf).1
+    exact coll_psiY hyF hfF (inC_lfr hσF hyF (Or.inr hyσ) (hCσF ξ hξ hξσ) hyC hf) (lfr_spec hf).2
+  -- `Ψ_σ(A ξ)` は標準形
   have hstepNF : ∀ ξ, WNF ξ → Lt ξ σ → ¬ isSucc ξ = true →
-      validR σ (oadd (ofSummands pre) (fundBig R ξ)) = true →
-      Lt ξ (.Psi σ (oadd (ofSummands pre) (fundBig R ξ))) →
-      WNF (.Psi σ (oadd (ofSummands pre) (fundBig R ξ))) := by
-    intro ξ hξ hξσ hξns hval hξy
-    have hbl := hbase_lt _ (hBF ξ hξ hξσ)
-      (fun e => hx0 ξ hξ hξσ (oadd_eq_zero hPF (hxF ξ hξ hξσ) e).2) (hBns ξ hξ hξσ hξns)
-      (validR_iff.mp hval)
-    have e0 : oadd (ofSummands pre) (fundBig R ξ) = apx pre .zero (fundBig R ξ) := by
-      show _ = oadd (ofSummands pre) (oadd .zero (fundBig R ξ))
-      rw [zero_oadd (hxF ξ hξ hξσ)]
-    rw [e0] at hξy hbl hval ⊢
-    have hAF : WNF (apx pre .zero (fundBig R ξ)) := by rw [← e0]; exact hBF ξ hξ hξσ
+      Lt ξ (.Psi σ (apx pre cσ (fundBig R ξ))) → WNF (.Psi σ (apx pre cσ (fundBig R ξ))) := by
+    intro ξ hξ hξσ hξns hξy
+    have hval := hvalσ ξ hξ hξσ
+    have hbl := hbase_lt _ (hAσF ξ hξ hξσ) (hAσ0 ξ hξ hξσ) (hAσns ξ hξ hξσ hξns) (validR_iff.mp hval)
+    have hAF := hAσF ξ hξ hξσ
     have hcutY := cut_psi hσF hσT hAF
-    exact approx_nf' hTF hsX hRi WNF.zero (zero_lt hR0) hξ hξσ hval (inC_zero _ _)
-      (inC_of_lt_cut hcutY _ hξ hξy) (inC_of_lt_cut hcutY _ hbF hbl)
+    obtain ⟨-, -, -, -, hsC⟩ := approx_core (π := σ) hTF hsX hcσF hadjσ.cR (hxF ξ hξ hξσ)
+      (hRP.lt ξ hξ hξσ) (fun v hv hne hlt => hRi.gapP hR.2 ξ v hξ hξσ hv hne hlt) (hRi.pos ξ hξ hξσ)
+    have hσCA : inC σ (apx pre cσ (fundBig R ξ)) (.Psi σ (apx pre cσ (fundBig R ξ))) = true :=
+      hRi.σC _ _ hcutY (hsC R hRX)
+    have hcC := hadjσ.cC _ _ hAF (hAσ0 ξ hξ hξσ) hcutY hσCA
+      (fun h => Lt.irrefl _ (below_lt_tgt hσF hσT σ hσF h))
+    exact approx_nf' hTF hsX hRi hcσF hadjσ.cR hξ hξσ hval hcC (inC_of_lt_cut hcutY _ hξ hξy)
+      (inC_of_lt_cut hcutY _ hbF hbl)
+  -- 塔の一段
+  have hstep : ∀ ξ, WNF ξ → Lt ξ σ → ¬ isSucc ξ = true → Lt ξ (.Psi σ (apx pre cσ (fundBig R ξ))) →
+      WNF (.Psi σ (apx pre cσ (fundBig R ξ))) ∧ Lt (.Psi σ (apx pre cσ (fundBig R ξ))) σ ∧
+      ¬ isSucc (.Psi σ (apx pre cσ (fundBig R ξ))) = true ∧
+      Lt (base σ) (.Psi σ (apx pre cσ (fundBig R ξ))) ∧
+      Lt (.Psi σ (apx pre cσ (fundBig R ξ)))
+        (.Psi σ (apx pre cσ (fundBig R (.Psi σ (apx pre cσ (fundBig R ξ)))))) := by
+    intro ξ hξ hξσ hξns hξy
+    have hyF := hstepNF ξ hξ hξσ hξns hξy
+    have hyσ := lt_psi_targetY hyF
+    refine ⟨hyF, hyσ, ?_, hbase_lt _ (hAσF ξ hξ hξσ) (hAσ0 ξ hξ hξσ) (hAσns ξ hξ hξσ hξns)
+      (validR_iff.mp (hvalσ ξ hξ hξσ)), ?_⟩
+    · intro he; simp [isSucc, summands, one] at he; exact hσ0 he.1
+    · exact lt_psi_psi_same.mpr (oadd_lt_oadd hPF (hCσF ξ hξ hξσ) (hCσF _ hyF hyσ)
+        (oadd_lt_oadd hcσF (hxF ξ hξ hξσ) (hxF _ hyF hyσ) (hRP.mono _ _ hξ hyF hξy hyσ)))
+  have e0 : ¬ validR σ (oadd (ofSummands pre) (fundBig R .zero)) = true →
+      γ 0 = .Psi σ (apx pre cσ (fundBig R .zero)) := fun hv0 => by
+    rw [hγ0, if_neg hv0, col_notM hσM, if_pos (hvalσ _ WNF.zero hRP.pos)]
   have key : ∀ n, WNF (γ n) ∧ Lt (γ n) σ ∧ ¬ isSucc (γ n) = true ∧
       validR σ (oadd (ofSummands pre) (fundBig R (γ n))) = true ∧
-      Lt (γ n) (.Psi σ (oadd (ofSummands pre) (fundBig R (γ n)))) ∧
-      (n ≠ 0 → Le (base σ) (γ n) ∧ Cl σ (γ n)) := by
+      Lt (γ n) (.Psi σ (apx pre cσ (fundBig R (γ n)))) ∧
+      (γ n = .zero ∨ (Lt (base σ) (γ n) ∧ Cl σ (γ n) ∧ isPrincipal (γ n) = true)) := by
     intro n
     induction n with
     | zero =>
-      rw [hγ0]
       by_cases hv0 : validR σ (oadd (ofSummands pre) (fundBig R .zero)) = true
-      · rw [if_pos hv0]
+      · rw [hγ0, if_pos hv0]
         exact ⟨WNF.zero, hRP.pos, by simp [isSucc, summands], hv0, zero_lt (by intro e; cases e),
-          fun h => absurd rfl h⟩
-      · rw [if_neg hv0]
-        have hv : validR σ (oadd (ofSummands pre) (fundBig R (base σ))) = true :=
-          validR_iff.mpr (hvalid _ hbF hbσ (Or.inl rfl))
-        exact ⟨hbF, hbσ, hb_ns, hv, hbase_lt _ (hBF _ hbF hbσ)
-          (fun e => hx0 _ hbF hbσ (oadd_eq_zero hPF (hxF _ hbF hbσ) e).2) (hBns _ hbF hbσ hb_ns)
-          (validR_iff.mp hv), fun h => absurd rfl h⟩
+          Or.inl rfl⟩
+      · obtain ⟨hyF, hyσ, hyns, hby, hyy⟩ := hstep _ WNF.zero hRP.pos (by simp [isSucc, summands])
+          (zero_lt (by intro e; cases e))
+        rw [e0 hv0]
+        exact ⟨hyF, hyσ, hyns, validR_iff.mpr (hvalid _ hyF hyσ (Or.inr hby)), hyy,
+          Or.inr ⟨hby, Cl.of_psi hyF, rfl⟩⟩
     | succ n ih =>
-      obtain ⟨hγF, hγσ, hγns, hγv, hγy, -⟩ := ih
-      have e1 : γ (n + 1) = .Psi σ (oadd (ofSummands pre) (fundBig R (γ n))) := by
-        rw [hγS n, col_notM hσM, if_pos hγv]
-      have hyF := hstepNF _ hγF hγσ hγns hγv hγy
-      have hF1 : WNF (γ (n + 1)) := by rw [e1]; exact hyF
-      have hσ1 : Lt (γ (n + 1)) σ := by rw [e1]; exact lt_psi_targetY hyF
-      have hlt : Lt (γ n) (γ (n + 1)) := by rw [e1]; exact hγy
-      have hns1 : ¬ isSucc (γ (n + 1)) = true := by
-        rw [e1]; intro he; simp [isSucc, summands, one] at he; exact hσ0 he.1
-      have hb1 : Le (base σ) (γ (n + 1)) := by
-        rw [e1]
-        exact Or.inr (hbase_lt _ (hBF _ hγF hγσ)
-          (fun e => hx0 _ hγF hγσ (oadd_eq_zero hPF (hxF _ hγF hγσ) e).2) (hBns _ hγF hγσ hγns)
-          (validR_iff.mp hγv))
-      have hv1 := validR_iff.mpr (hvalid _ hF1 hσ1 hb1)
-      refine ⟨hF1, hσ1, hns1, hv1, ?_, fun _ => ⟨hb1, by rw [e1]; exact Cl.of_psi hyF⟩⟩
-      have h := lt_psi_psi_same (π := σ).mpr (oadd_lt_oadd hPF (hxF _ hγF hγσ) (hxF _ hF1 hσ1)
-        (hRP.mono _ _ hγF hF1 hlt hσ1))
-      rw [← e1] at h
-      exact h
+      obtain ⟨hγF, hγσ, hγns, -, hγy, -⟩ := ih
+      have e1 : γ (n + 1) = .Psi σ (apx pre cσ (fundBig R (γ n))) := by
+        rw [hγS n, col_notM hσM, if_pos (hvalσ _ hγF hγσ)]
+      obtain ⟨hyF, hyσ, hyns, hby, hyy⟩ := hstep _ hγF hγσ hγns hγy
+      rw [e1]
+      exact ⟨hyF, hyσ, hyns, validR_iff.mpr (hvalid _ hyF hyσ (Or.inr hby)), hyy,
+        Or.inr ⟨hby, Cl.of_psi hyF, rfl⟩⟩
   have hγF : ∀ n, WNF (γ n) := fun n => (key n).1
   have hγσ : ∀ n, Lt (γ n) σ := fun n => (key n).2.1
   have hγns : ∀ n, ¬ isSucc (γ n) = true := fun n => (key n).2.2.1
   have hγv : ∀ n, validR σ (oadd (ofSummands pre) (fundBig R (γ n))) = true := fun n =>
     (key n).2.2.2.1
-  have hcol : ∀ n, γ (n + 1) = .Psi σ (oadd (ofSummands pre) (fundBig R (γ n))) := fun n => by
-    rw [hγS n, col_notM hσM, if_pos (hγv n)]
+  have hcol : ∀ n, γ (n + 1) = .Psi σ (apx pre cσ (fundBig R (γ n))) := fun n => by
+    rw [hγS n, col_notM hσM, if_pos (hvalσ _ (hγF n) (hγσ n))]
   have hγm : ∀ n, Lt (γ n) (γ (n + 1)) := fun n => by rw [hcol n]; exact (key n).2.2.2.2.1
-  have hγb : ∀ n, Le (base σ) (γ (n + 1)) := fun n =>
-    ((key (n + 1)).2.2.2.2.2 (Nat.succ_ne_zero n)).1
-  have hγCl : ∀ n, Cl σ (γ (n + 1)) := fun n => ((key (n + 1)).2.2.2.2.2 (Nat.succ_ne_zero n)).2
+  have hγpos : ∀ n, Lt (base σ) (γ (n + 1)) ∧ Cl σ (γ (n + 1)) := by
+    intro n
+    rcases (key (n + 1)).2.2.2.2.2 with h | h
+    · exfalso; rw [hcol n] at h; cases h
+    · exact ⟨h.1, h.2.1⟩
+  have hγb : ∀ n, Le (base σ) (γ (n + 1)) := fun n => Or.inr (hγpos n).1
+  have hγCl : ∀ n, Cl σ (γ (n + 1)) := fun n => (hγpos n).2
   have hγ0' : ∀ n, Lt .zero (γ (n + 1)) := fun n =>
     lt_of_lt_of_leY WNF.zero hbF (hγF (n + 1)) hb_pos (hγb n)
   -- `T` 未満の項は塔のどこかの下
@@ -402,13 +478,15 @@ theorem inv_psi_diag_out {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
       have hbF' := hz.psi.aF
       have hbX : Lt b X := lt_psi_psi_same.mp hzT
       rcases lt_split hX hsX hbF' hbX with hle | ⟨b', hb', hb'0, hb'R, hsb, hbe⟩
-      · exact lt_of_le_of_ltY hbF' hPF (hBF _ (hγF _) (hγσ _)) hle (hpreB _ (hγF _) (hγσ _))
+      · exact lt_of_le_of_ltY hbF' hPF (hAσF _ (hγF _) (hγσ _)) hle (hpreA _ (hγF _) (hγσ _))
       · rw [hbe]
-        refine oadd_lt_oadd hPF hb' (hxF _ (hγF _) (hγσ _))
-          (hRi.lclo b' (γ (N + 1)) hb' hb'R (hγF _) (hγ0' N) (hγσ _) (fun g hg => ?_))
+        refine lt_of_lt_of_leY (wnf_oadd hPF hb') (hBF _ (hγF _) (hγσ _)) (hAσF _ (hγF _) (hγσ _))
+          (oadd_lt_oadd hPF hb' (hxF _ (hγF _) (hγσ _))
+            (hRi.lclo b' (γ (N + 1)) hb' hb'R (hγF _) (hγ0' N) (hγσ _) (fun g hg => ?_)))
+          (hBAσ _ (hγF _) (hγσ _))
         have hgF := hb'.of_mem_subs (lfr_spec hg).1
         refine hγCl N g hgF (lfr_spec hg).2 (fun f hf => ?_)
-        have hf1 : f ∈ fr σ b' := fr_of_lfr hσF hb' hg hf
+        have hf1 : f ∈ fr σ b' := fr_of_lfr hb' hg hf
         have hf2 : f ∈ fr σ b :=
           fr_sub_of_summands (fun u hu => by rw [hsb]; exact List.mem_append_right _ hu) hf1
         have hfF := hbF'.of_mem_subs (fr_spec hf2).1
@@ -467,40 +545,52 @@ theorem inv_psi_diag_out {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
     rcases inC_xi_iff.mp hσCn with h | ⟨h, -⟩
     · exact absurd h hσyn
     · exact h
+  -- `σ` への崩壊の近似の引数は、その値を添字とする `t` の近似の引数未満
+  have hAσA : ∀ ξ n, WNF ξ → Lt ξ σ → γ n = .Psi σ (apx pre cσ (fundBig R ξ)) →
+      Lt (apx pre cσ (fundBig R ξ)) (apx pre c (fundBig R (γ n))) := by
+    intro ξ n hξ hξσ he
+    have hyF : WNF (.Psi σ (apx pre cσ (fundBig R ξ))) := by rw [← he]; exact hγF n
+    have h1 := hAnext ξ hξ hξσ hyF
+    rw [← he] at h1
+    exact oadd_lt_oadd hPF (hCσF ξ hξ hξσ) (hA'F n)
+      (lt_of_lt_of_leY (hCσF ξ hξ hξσ) (hxF _ (hγF n) (hγσ n)) (hA'F n) h1
+        (le_oadd_right hadj.cF (hxF _ (hγF n) (hγσ n))))
+  -- `σ` への崩壊の近似の所属
+  have hAσC : ∀ ξ n, WNF ξ → Lt ξ σ →
+      inC ξ (apx pre c (fundBig R (γ n))) (.Psi π (apx pre c (fundBig R (γ n)))) = true →
+      inC (apx pre cσ (fundBig R ξ)) (apx pre c (fundBig R (γ n)))
+        (.Psi π (apx pre c (fundBig R (γ n)))) = true := by
+    intro ξ n hξ hξσ hξC
+    refine inC_oadd hPF (hCσF ξ hξ hξσ) ((inC_ofSummands pre).mpr (fun s hs =>
+      (hcore n).2.2.2.2 s (by rw [hsX]; exact List.mem_append_left _ hs))) ?_
+    refine inC_oadd hcσF (hxF ξ hξ hξσ) (hadjσ.cC _ _ (hAF n) (hA0 n) (hcutA n) (hσCA n) (hσy n)) ?_
+    exact hRi.ub _ _ ξ (hAF n) (hA0 n) (hcutA n) hξ hξσ (hB n) ((hcore n).2.2.2.2 R hRX) hξC
+  have hpsiC : ∀ ξ n, WNF ξ → Lt ξ σ → γ n = .Psi σ (apx pre cσ (fundBig R ξ)) →
+      inC ξ (apx pre c (fundBig R (γ n))) (.Psi π (apx pre c (fundBig R (γ n)))) = true →
+      inC (γ n) (apx pre c (fundBig R (γ n))) (.Psi π (apx pre c (fundBig R (γ n)))) = true := by
+    intro ξ n hξ hξσ he hξC
+    by_cases hlt : Lt (γ n) (.Psi π (apx pre c (fundBig R (γ n))))
+    · exact inC_of_lt_cut (hcutA n) _ (hγF n) hlt
+    · have h : inC (.Psi σ (apx pre cσ (fundBig R ξ))) (apx pre c (fundBig R (γ n)))
+          (.Psi π (apx pre c (fundBig R (γ n)))) = true :=
+        inC_psi_iff.mpr (Or.inr ⟨hσCA n, hAσC ξ n hξ hξσ hξC, hAσA ξ n hξ hξσ he⟩)
+      rw [← he] at h
+      exact h
   have hC : ∀ n, inC (γ n) (apx pre c (fundBig R (γ n)))
       (.Psi π (apx pre c (fundBig R (γ n)))) = true := by
     intro n
     induction n with
     | zero =>
-      rcases (show γ 0 = .zero ∨ γ 0 = base σ by rw [hγ0]; split <;> simp) with h0 | h0
-      · rw [h0]; exact inC_zero _ _
-      · have := hB 0; rw [h0] at this ⊢; exact this
+      by_cases hv0 : validR σ (oadd (ofSummands pre) (fundBig R .zero)) = true
+      · have h0 : γ 0 = .zero := by rw [hγ0, if_pos hv0]
+        rw [h0]; exact inC_zero _ _
+      · exact hpsiC .zero 0 WNF.zero hRP.pos (e0 hv0) (inC_zero _ _)
     | succ n ih =>
-      by_cases hlt : Lt (γ (n + 1)) (.Psi π (apx pre c (fundBig R (γ (n + 1)))))
-      · exact inC_of_lt_cut (hcutA (n + 1)) _ (hγF _) hlt
-      · have hγnC : inC (γ n) (apx pre c (fundBig R (γ (n + 1))))
-            (.Psi π (apx pre c (fundBig R (γ (n + 1))))) = true :=
-          inC_mono _ _ _ _ _ ih
-            (fun v hv hvy => below_mono hπ hπT (hAF _) (hAF n) (Or.inr (hAm n))
-              ((hγF n).of_mem_subs hv) hvy)
-            (fun v hv hvA => lt_transY ((hγF n).of_mem_subs hv) (hAF n) (hAF _) hvA (hAm n))
-        have hBnC : inC (oadd (ofSummands pre) (fundBig R (γ n))) (apx pre c (fundBig R (γ (n + 1))))
-            (.Psi π (apx pre c (fundBig R (γ (n + 1))))) = true :=
-          inC_oadd hPF (hxF _ (hγF n) (hγσ n))
-            ((inC_ofSummands pre).mpr (fun s hs =>
-              (hcore (n + 1)).2.2.2.2 s (by rw [hsX]; exact List.mem_append_left _ hs)))
-            (hRi.ub _ _ (γ n) (hAF _) (hA0 _) (hcutA _) (hγF n) (hγσ n) (hB (n + 1))
-              ((hcore (n + 1)).2.2.2.2 R hRX) hγnC)
-        have hBnlt : Lt (oadd (ofSummands pre) (fundBig R (γ n))) (apx pre c (fundBig R (γ (n + 1)))) :=
-          lt_of_lt_of_leY (hBF _ (hγF n) (hγσ n)) (hBF _ (hγF _) (hγσ _)) (hAF _)
-            (oadd_lt_oadd hPF (hxF _ (hγF n) (hγσ n)) (hxF _ (hγF _) (hγσ _))
-              (hRP.mono _ _ (hγF n) (hγF _) (hγm n) (hγσ _)))
-            (hBA (n + 1))
-        have h : inC (.Psi σ (oadd (ofSummands pre) (fundBig R (γ n))))
-            (apx pre c (fundBig R (γ (n + 1)))) (.Psi π (apx pre c (fundBig R (γ (n + 1))))) = true :=
-          inC_psi_iff.mpr (Or.inr ⟨hσCA (n + 1), hBnC, hBnlt⟩)
-        rw [← hcol n] at h
-        exact h
+      refine hpsiC (γ n) (n + 1) (hγF n) (hγσ n) (hcol n) ?_
+      exact inC_mono _ _ _ _ _ ih
+        (fun v hv hvy => below_mono hπ hπT (hAF _) (hAF n) (Or.inr (hAm n))
+          ((hγF n).of_mem_subs hv) hvy)
+        (fun v hv hvA => lt_transY ((hγF n).of_mem_subs hv) (hAF n) (hAF _) hvA (hAm n))
   -- 上界
   have hub : ∀ g d, WNF g → g ≠ .zero → Cut d → inC (.Psi π X) g d = true → ¬ Lt (.Psi π X) d →
       inC (base σ) g d = true ∧ ∀ n, inC (γ n) g d = true := by
@@ -519,22 +609,26 @@ theorem inv_psi_diag_out {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
       rcases inC_xi_iff.mp hσCg with h | ⟨h, -⟩
       · exact absurd h hσd
       · exact h
+    have hcσC : inC cσ g d = true := hadjσ.cC g d hg hg0 hd hσCg hσd
+    have hpsi : ∀ ξ, WNF ξ → Lt ξ σ → inC ξ g d = true →
+        inC (.Psi σ (apx pre cσ (fundBig R ξ))) g d = true := by
+      intro ξ hξ hξσ hξC
+      by_cases hyd : Lt (.Psi σ (apx pre cσ (fundBig R ξ))) d
+      · exact inC_of_lt_node (Or.inr ⟨_, _, rfl⟩) hyd
+      · refine inC_psi_iff.mpr (Or.inr ⟨hσCg, ?_,
+          lt_transY (hAσF ξ hξ hξσ) hX hg (hAσX ξ hξ hξσ) hXg⟩)
+        refine inC_oadd hPF (hCσF ξ hξ hξσ) ((inC_ofSummands pre).mpr (fun s hs =>
+          inC_of_mem_summands hX hXC (by rw [hsX]; exact List.mem_append_left _ hs))) ?_
+        exact inC_oadd hcσF (hxF ξ hξ hξσ) hcσC (hRi.ub g d ξ hg hg0 hd hξ hξσ hbC hRCg hξC)
     refine ⟨hbC, fun n => ?_⟩
     induction n with
     | zero =>
-      rw [hγ0]; split
-      · exact inC_zero _ _
-      · exact hbC
+      by_cases hv0 : validR σ (oadd (ofSummands pre) (fundBig R .zero)) = true
+      · rw [hγ0, if_pos hv0]; exact inC_zero _ _
+      · rw [e0 hv0]; exact hpsi .zero WNF.zero hRP.pos (inC_zero _ _)
     | succ n ih =>
       rw [hcol n]
-      by_cases hyd : Lt (.Psi σ (oadd (ofSummands pre) (fundBig R (γ n)))) d
-      · exact inC_of_lt_node (Or.inr ⟨_, _, rfl⟩) hyd
-      · refine inC_psi_iff.mpr (Or.inr ⟨hσCg, ?_,
-          lt_transY (hBF _ (hγF n) (hγσ n)) hX hg (hBX _ (hγF n) (hγσ n)) hXg⟩)
-        exact inC_oadd hPF (hxF _ (hγF n) (hγσ n))
-          ((inC_ofSummands pre).mpr (fun s hs =>
-            inC_of_mem_summands hX hXC (by rw [hsX]; exact List.mem_append_left _ hs)))
-          (hRi.ub g d (γ n) hg hg0 hd (hγF n) (hγσ n) hbC hRCg ih)
+      exact hpsi (γ n) (hγF n) (hγσ n) ih
   -- 共終性
   have hcof : ∀ a a' N, WNF (.Psi π a) → WNF a' → Lt a X → summands a = pre ++ summands a' →
       Lt a' R → (∀ w, w ∈ fr π a → Lt w (.Psi π (apx pre c (fundBig R (γ N))))) →
@@ -576,23 +670,37 @@ theorem inv_psi_diag_out {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
       rcases hγb n with e | h
       · rw [e]; exact inC_of_lt_cut hd g (hγF _) hlt1
       · exact inC_of_lt_cut hd g hbF (hd _ _ hbF (hγF _) h hlt1)
-    · have hyF1 : WNF (.Psi σ (oadd (ofSummands pre) (fundBig R (γ n)))) := by
+    · have hyF1 : WNF (.Psi σ (apx pre cσ (fundBig R (γ n)))) := by
         rw [← hcol n]; exact hγF _
       rw [hcol n] at hγ1C hlt1
       rcases inC_psi_iff.mp hγ1C with h1 | ⟨hσCg, hBC, hBg⟩
       · exact absurd h1 hlt1
-      obtain ⟨-, hxnC⟩ := inC_oadd_pre hXn (hxF _ (hγF n) (hγσ n)) (hRP.lt _ (hγF n) (hγσ n)) hBC
-      refine ⟨hbaseC g d hg0 hσCg (fun e he => ?_), hRi.lo g d (γ n) hd (hγF n) (hγσ n) hxnC⟩
+      obtain ⟨-, hxnC⟩ := inC_oadd_pre hXn (hCσF _ (hγF n) (hγσ n)) (hCσR _ (hγF n) (hγσ n)) hBC
+      have hxnC' := inC_of_oadd_right hcσF (hxF _ (hγF n) (hγσ n)) hxnC
+      refine ⟨hbaseC g d hg0 hσCg (fun e he => ?_), hRi.lo g d (γ n) hd (hγF n) (hγσ n) hxnC'⟩
       have hσd : ¬ Lt σ d := fun h' => hlt1 (hd _ _ hyF1 hσF (lt_psi_targetY hyF1) h')
       have heF := wnf_argR hσF he
-      have heB : Lt e (oadd (ofSummands pre) (fundBig R (γ n))) := validR_iff.mp (hγv n) e he
-      refine ⟨?_, lt_of_le_of_ltY (succT_WNF heF) (hBF _ (hγF n) (hγσ n)) hg
-        (succT_leY heF (hBF _ (hγF n) (hγσ n)) heB) hBg⟩
+      have heB : Lt e (apx pre cσ (fundBig R (γ n))) := validR_iff.mp (hvalσ _ (hγF n) (hγσ n)) e he
+      refine ⟨?_, lt_of_le_of_ltY (succT_WNF heF) (hAσF _ (hγF n) (hγσ n)) hg
+        (succT_leY heF (hAσF _ (hγF n) (hγσ n)) heB) hBg⟩
       obtain ⟨m, rfl⟩ := argR_some he
       rcases inC_xi_iff.mp hσCg with h | ⟨h, -⟩
       · exact absurd h hσd
       · exact h
-  refine ⟨fun _ => natInv_psi_idx ht hsX hRi hadj γ hγF hγσ hγm hf hC hB hub hcof hub2,
-    fun σ' hd => by rw [hdom] at hd; cases hd⟩
+  refine ⟨⟨fun _ => natInv_psi_idx ht hsX hRi hadj γ hγF hγσ hγm hf hC hB hub hcof hub2,
+    fun σ hd => by rw [hdom] at hd; cases hd⟩, c, cσ, γ,
+    ⟨hTF, hdom, hmk, hadj, hmkσ, hadjσ, hf, hγF, hγσ, ?_, hcol, hγm, fun n => ?_⟩⟩
+  · by_cases hv0 : validR σ (oadd (ofSummands pre) (fundBig R .zero)) = true
+    · left; rw [hγ0, if_pos hv0]
+    · right; exact e0 hv0
+  · rcases (key n).2.2.2.2.2 with h | h
+    · exact Or.inl h
+    · exact Or.inr ⟨h.2.2, h.1⟩
+
+theorem inv_psi_diag_out {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X))
+    (hsX : summands X = pre ++ [R]) (hns : ¬ isSucc X = true)
+    (hRd : dom R = .big σ) (hRi : BigInv R σ) (hπσ : Lt π σ) (hσM : ∀ m, σ ≠ .M m)
+    (hT : Lt (.Psi π X) (.Psi σ X)) : Inv (.Psi π X) :=
+  (inv_psi_diag_out_full ht hsX hns hRd hRi hπσ hσM hT).1
 
 end MahloOCF.FS

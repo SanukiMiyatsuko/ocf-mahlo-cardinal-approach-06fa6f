@@ -6,9 +6,12 @@ import Mahlo.FS.XiFloor
 `Ψ_σ(X)` は標準形とは限らないので、`σ` の始点 `B = base σ`（標準形）を使う。
 
 * `σ = Ξ_k(e)`（`lev π = lev σ = k`）で、`B` は `π` の底の条件を満たさない（`Ψ_σ(X)` が満たさないので）。
-  したがって `B` は全ての `Ψ_π(A)` より小さく、`π` の前線の最大元 `P0` は `B` 以上。
-* 列は `t[ν] = Ψ_π(pre ⊕ (c ⊕ R[y_ν]))`、添字 `y` は `P0` の上の `Ξ_k(ξ)`（`ξ < e`）の閉包（`famSeq`）。
-  `B ≤ P0 < σ` なので種の仮定（`SeedHyp`）は成り立つ（`e` の加数で `σ` 未満のものは `B` 未満）。
+  したがって `B` は全ての `Ψ_π(A)` より小さい。
+* 列は `t[ν] = Ψ_π(pre ⊕ (c ⊕ R[y_ν]))`、添字 `y` は種 `p = a2Seed σ π` の上の `Ξ_k(ξ)`（`ξ < e`）の閉包
+  （`famSeq`）。種は `π` の前線の中で見える `Ψ_σ(·)` の最大のもの（`B` 未満・存在しないなら `B`）で、
+  `B ≤ p < σ` なので種の仮定（`SeedHyp`）は成り立つ（`e` の加数で `σ` 未満のものは `B` 未満）。
+* `π` は添字の列の下にある：`π` の前線は、見える `Ψ_σ(·)` が種以下の項（`CF`）なので、成分に分けて
+  族の閉包・種で押さえられる（`cf_lt_fam_nat`・`cf_lt_fam_big`）。
 * 共終性：`x = Ψ_π(a) < t` の `a` の `σ` 未満の極大部分項 `f` は `C(a, x)` に入る。`f` は添字の列の下にある
   （`x` 未満なら `π` の下、`x` 以上なら成分に分けて族の閉包・`B` で押さえる）。 -/
 
@@ -303,54 +306,6 @@ theorem fr_xi_self {m : Nat} {d : Tm} : fr (.Xi m d) (.Xi m d) = fr (.Xi m d) d 
   show (if Lt (Tm.Xi m d) (.Xi m d) then [Tm.Xi m d] else fr (.Xi m d) d) = _
   rw [ite_eq_right (Lt.irrefl _)]
 
-/-- `σ = Ξ_k(e)` の始点 `B` が `π` の底の条件を満たさなければ、`π` の前線の最大元 `P0` は `B` 以上 -/
-theorem a2_P0 {π e : Tm} {k : Nat} (hπ : WNF π) (hπT : IsTgt π) (hlev : lev π = k)
-    (hBF : WNF (.Psi (.Xi k e) (sc e))) (hπσ : Lt π (.Xi k e))
-    (hnb : baseOf π (.Psi (.Xi k e) (sc e)) = false) :
-    ∃ p, maxL (frB π π) = some p ∧ p ∈ fr π π ∧ Le (.Psi (.Xi k e) (sc e)) p := by
-  have hσF := hBF.psi.piF
-  have hOF : IsOF (Tm.Psi (.Xi k e) (sc e)) := Or.inr ⟨k, e, sc e, rfl⟩
-  have hex : ∃ w, w ∈ fr π π ∧ ¬ Lt w (.Psi (.Xi k e) (sc e)) := by
-    refine exists_of_not_forall_mem _ (fun hall => ?_)
-    rcases hπT with rfl | ⟨c, rfl, hs⟩ | ⟨m, d, rfl⟩
-    · rw [(baseOf_om_zero _).mpr (by intro e; cases e)] at hnb; cases hnb
-    · have hcF := hπ.om.1
-      have hcπ : Lt c (.Om c) := lt_om_selfY hπ
-      have hcC : inC c (sc e) (.Psi (.Xi k e) (sc e)) = true :=
-        inC_of_fr c (inC_of_ltY _ hcF hπ hcπ) (fun _ _ h => h)
-          (fun w hw => inC_of_lt_node (fr_node hw) (hall w hw))
-      have hcB := coll_psiY hBF hcF hcC (lt_transY hcF hπ hσF hcπ hπσ)
-      have hpB : Lt (predT c) (.Psi (.Xi k e) (sc e)) :=
-        lt_transY (predT_WNF hcF hs) hcF hBF (lt_predT hcF hs) hcB
-      have : baseOf (.Om c) (.Psi (.Xi k e) (sc e)) = true := by
-        rw [baseOf_om_succ hs]
-        unfold omOf
-        split
-        · exact hpB
-        · exact (lt_om_OFG hOF hBF).mpr hpB
-      rw [this] at hnb; cases hnb
-    · have hm : m = k := hlev
-      subst hm
-      have hdC : inC d d (.Psi (.Xi m e) (sc e)) = true :=
-        inC_of_fr d (xi_selfY hπ) (fun _ _ h => h)
-          (fun w hw => inC_of_lt_node (fr_node hw) (hall w (by rw [fr_xi_self]; exact hw)))
-      have hk := ((baseOf_xi_iff m e _).mp (base_selfY hBF)).1
-      have : baseOf (.Xi m d) (.Psi (.Xi m e) (sc e)) = true := (baseOf_xi_iff m d _).mpr ⟨hk, hdC⟩
-      rw [this] at hnb; cases hnb
-  obtain ⟨w, hw, hwB⟩ := hex
-  have hfrF : ∀ x, x ∈ frB π π → WNF x := fun x hx => by
-    rw [frB_eq_fr] at hx; exact (fr_elem hπ hx).1
-  cases hm : maxL (frB π π) with
-  | none =>
-    have h0 := maxL_none hm
-    rw [frB_eq_fr] at h0
-    rw [h0] at hw; cases hw
-  | some p =>
-    have hpm : p ∈ fr π π := by rw [← frB_eq_fr]; exact maxL_mem hm
-    have hwp := maxL_le hfrF hm w (by rw [frB_eq_fr]; exact hw)
-    have hwF := (fr_elem hπ hw).1
-    exact ⟨p, rfl, hpm, le_transY hBF hwF (fr_elem hπ hpm).1 (le_of_not_ltY hwF hBF hwB) hwp⟩
-
 /-- `σ = Ξ_k(e)` の始点以上で `σ` 未満の種は `SeedHyp` を満たす -/
 theorem seedHyp_base {k : Nat} {e p : Tm} (hBF : WNF (.Psi (.Xi k e) (sc e))) (hpF : WNF p)
     (hBp : Le (.Psi (.Xi k e) (sc e)) p) (hpσ : Lt p (.Xi k e)) : SeedHyp k e p := by
@@ -549,9 +504,270 @@ theorem below_fam_big {k : Nat} {e τ : Tm} {P : Option Tm} {y : Tm → Tm} (F :
   | Xi j a => exact hfr _ (mem_fr_self (Or.inl ⟨j, a, rfl⟩) hxR)
   | Psi q a => exact hfr _ (mem_fr_self (Or.inr ⟨q, a, rfl⟩) hxR)
 
-/-! ### 対角化の文脈 -/
+/-! ### 外に足す型の種 `a2Seed` -/
 
-/-- 外に足す型の対角化で `Ψ_σ(X) ≤ t` の場合の文脈：`σ = Ξ_k(e)`、種 `p = P0`、調整 `c` -/
+theorem collOf_true {σ x : Tm} (h : collOf σ x = true) : ∃ b, x = .Psi σ b := by
+  cases x with
+  | Psi ρ b =>
+    have h' : ρ = σ := beq_iff_eq.mp h
+    exact ⟨b, by rw [h']⟩
+  | _ => cases h
+
+theorem collOf_psi (σ b : Tm) : collOf σ (.Psi σ b) = true := beq_iff_eq.mpr rfl
+
+theorem collOf_node {σ : Tm} : ∀ x, collOf σ x = true → (∃ m a, x = .Xi m a) ∨ ∃ p a, x = .Psi p a :=
+  fun x h => by obtain ⟨b, rfl⟩ := collOf_true h; exact Or.inr ⟨σ, b, rfl⟩
+
+theorem a2Seed_eq (k : Nat) (e π : Tm) : a2Seed (.Xi k e) π =
+    if ltB (frCl (collOf (.Xi k e)) π) (.Psi (.Xi k e) (sc e)) then .Psi (.Xi k e) (sc e)
+    else frCl (collOf (.Xi k e)) π := rfl
+
+/-- 種の形：`σ` の始点か、`π` の前線の中で見える `Ψ_σ(·)` の最大のもの（始点以上） -/
+theorem a2Seed_cases (k : Nat) (e π : Tm) :
+    a2Seed (.Xi k e) π = .Psi (.Xi k e) (sc e) ∨
+      (a2Seed (.Xi k e) π = frCl (collOf (.Xi k e)) π ∧
+        ¬ Lt (frCl (collOf (.Xi k e)) π) (.Psi (.Xi k e) (sc e)) ∧
+        ∃ e', e' ∈ fr π π ∧ maxCl (collOf (.Xi k e)) e' e' = some (frCl (collOf (.Xi k e)) π)) := by
+  rw [a2Seed_eq]
+  cases h : ltB (frCl (collOf (.Xi k e)) π) (.Psi (.Xi k e) (sc e)) with
+  | true => exact Or.inl rfl
+  | false =>
+    refine Or.inr ⟨rfl, (fun h' => by rw [ltB_iff.mpr h'] at h; cases h), ?_⟩
+    rcases frCl_spec (cl := collOf (.Xi k e)) (τ := π) with h0 | h1
+    · exfalso
+      rw [h0] at h
+      have h2 : Lt Tm.zero (.Psi (.Xi k e) (sc e)) := zero_lt (by intro e; cases e)
+      rw [ltB_iff.mpr h2] at h
+      cases h
+    · exact h1
+
+/-- 種は `Ψ_σ(β)`（標準形） -/
+theorem a2Seed_form {k : Nat} {e π : Tm} (hπ : WNF π) (hσ : WNF (.Xi k e)) :
+    ∃ β, a2Seed (.Xi k e) π = .Psi (.Xi k e) β ∧ WNF (.Psi (.Xi k e) β) := by
+  rcases a2Seed_cases k e π with h | ⟨h, -, e', he', hm⟩
+  · exact ⟨_, h, wnf_base_xi hσ⟩
+  · obtain ⟨h1, h2, -, -, -⟩ := maxCl_spec hm
+    obtain ⟨β, hβ⟩ := collOf_true h2
+    have he'F := (fr_elem hπ he').1
+    refine ⟨β, h.trans hβ, ?_⟩
+    rw [← hβ]
+    exact he'F.of_mem_subs h1
+
+theorem a2Seed_wnf {k : Nat} {e π : Tm} (hπ : WNF π) (hσ : WNF (.Xi k e)) :
+    WNF (a2Seed (.Xi k e) π) := by
+  obtain ⟨β, h, hW⟩ := a2Seed_form hπ hσ
+  rw [h]; exact hW
+
+/-- 種は `σ` の始点以上 -/
+theorem a2Seed_ge {k : Nat} {e π : Tm} (hπ : WNF π) (hσ : WNF (.Xi k e)) :
+    Le (.Psi (.Xi k e) (sc e)) (a2Seed (.Xi k e) π) := by
+  have hsF := a2Seed_wnf hπ hσ
+  rcases a2Seed_cases k e π with h | ⟨h, hlt, -⟩
+  · rw [h]; exact Or.inl rfl
+  · rw [h] at hsF ⊢
+    exact le_of_not_ltY hsF (wnf_base_xi hσ) hlt
+
+/-- `π` の前線の中の見える `Ψ_σ(·)` は種以下 -/
+theorem a2Seed_cf {k : Nat} {e π w : Tm} (hπ : WNF π) (hσ : WNF (.Xi k e)) (hw : w ∈ fr π π) :
+    CF (collOf (.Xi k e)) (a2Seed (.Xi k e) π) w := by
+  intro u huF hcl hle hv
+  have hwF := (fr_elem hπ hw).1
+  obtain ⟨G, hG, hl⟩ := maxCl_ge (collOf_node u hcl) huF hcl (le_leB hle) hv hwF (selfVis_mem hv)
+  obtain ⟨e', he', hf, hl'⟩ := frCl_ge hπ hw hG
+  have hGF := maxCl_wnf hwF G hG
+  have hfF : WNF (frCl (collOf (.Xi k e)) π) := maxCl_wnf (fr_elem hπ he').1 _ hf
+  have hsF := a2Seed_wnf hπ hσ
+  have h3 : Le (frCl (collOf (.Xi k e)) π) (a2Seed (.Xi k e) π) := by
+    rw [a2Seed_eq]
+    cases h : ltB (frCl (collOf (.Xi k e)) π) (.Psi (.Xi k e) (sc e)) with
+    | true => exact Or.inr (ltB_iff.mp h)
+    | false => exact Or.inl rfl
+  exact le_transY huF hfF hsF (le_transY huF hGF hfF hl hl') h3
+
+/-- 種は `Ψ_π(A)` の下界の切断に入る（`σ` の始点か、前線の元以下） -/
+theorem a2Seed_inC_psi {k : Nat} {e π A g : Tm} (hπ : WNF π) (hπT : IsTgt π) (hσ : WNF (.Xi k e))
+    (hcut : Cut (.Psi π A)) (hBlt : Lt (.Psi (.Xi k e) (sc e)) (.Psi π A)) :
+    inC (a2Seed (.Xi k e) π) g (.Psi π A) = true := by
+  rcases a2Seed_cases k e π with h | ⟨h, -, e', he', hm⟩
+  · rw [h]; exact inC_of_lt_cut hcut g (wnf_base_xi hσ) hBlt
+  · obtain ⟨h1, -, h2, -, -⟩ := maxCl_spec hm
+    obtain ⟨h0, h0π, -, -, hsub⟩ := fr_elem hπ he'
+    have hGF := h0.of_mem_subs h1
+    rw [h]
+    exact inC_of_lt_cut hcut g hGF (hcut.le hGF h0 (le_of_ne_gtY hGF h0 (leB_iff.mp h2))
+      (sub_lt_psi hπ hπT A e' hsub (Lt.ne h0π) h0 h0π))
+
+/-- 種の所属：始点と `π` の前線が `C(g, d)` に入れば種も入る -/
+theorem a2Seed_inC {k : Nat} {e π g d : Tm} (hπ : WNF π) (hd : Cut d)
+    (hB : inC (.Psi (.Xi k e) (sc e)) g d = true) (hfr : ∀ w, w ∈ fr π π → inC w g d = true) :
+    inC (a2Seed (.Xi k e) π) g d = true := by
+  rcases a2Seed_cases k e π with h | ⟨h, -, e', he', hm⟩
+  · rw [h]; exact hB
+  · obtain ⟨h1, -, -, h3, -⟩ := maxCl_spec hm
+    have h0 := (fr_elem hπ he').1
+    rw [h]
+    exact inC_of_selfVis (h0.of_mem_subs h1) hd h0 h3 (hfr e' he')
+
+/-! ### 閉じた点が種以下の項は族の閉包の列の下 -/
+
+/-- 種 `p`（`σ` の始点以上）の族の閉包の列について、見える `Ψ_σ(·)` が全て `G`（列の下にある点）以下の
+`σ` 未満の項は列の下（`ω` 型） -/
+theorem cf_lt_fam_nat {k : Nat} {e p G : Tm} {y : Nat → Tm} (hσ : WNF (.Xi k e))
+    (hpF : WNF p) (hBp : Le (.Psi (.Xi k e) (sc e)) p) (F : FamNat k e (some p) y)
+    (hGF : WNF G) (hG : ∃ n, Lt G (y n)) :
+    ∀ z, WNF z → Lt z (.Xi k e) → CF (collOf (.Xi k e)) G z → ∃ n, Lt z (y n) := by
+  have hm : 1 ≤ k := hσ.xi.1
+  have heF := hσ.xi.2.1
+  have hBF : WNF (.Psi (.Xi k e) (sc e)) := wnf_base_xi hσ
+  have hσT : IsTgt (Tm.Xi k e) := Or.inr (Or.inr ⟨k, e, rfl⟩)
+  have hy0p : Lt p (y 0) := F.seed p rfl
+  have hBy : ∀ z, WNF z → Lt z (.Psi (.Xi k e) (sc e)) → Lt z (y 0) := fun z hz h =>
+    lt_transY hz hpF (F.F 0) (lt_of_lt_of_leY hz hBF hpF h hBp) hy0p
+  intro z
+  induction z using size_induction with
+  | h z ih =>
+  intro hz hzσ hcf
+  have hlev : lev z ≤ k := by have := lev_le_of_lt_gen hzσ; simpa [lev] using this
+  rcases Nat.lt_or_eq_of_le hlev with hl | hl
+  · exact ⟨0, lt_y0_of_lev F hm hz hl⟩
+  cases z with
+  | zero => exfalso; simp only [lev] at hl; omega
+  | M j => exact ⟨0, lt_of_le_of_ltY hz (wnf_kTerm _) (F.F 0) (M_le_floor hz hl) F.bot⟩
+  | plus a b =>
+    obtain ⟨ha, -, -, -⟩ := hz.plus
+    obtain ⟨n, hn⟩ := ih a (by simp only [Tm.size]; omega) ha
+      (lt_transY ha hz hσ (lt_plus_leftY hz) hzσ) (hcf.par hz (by simp [parF]))
+    exact ⟨n, (lt_plus_prin_iffY hz (F.prin n)).mpr hn⟩
+  | Om a =>
+    have haF := hz.om.1
+    obtain ⟨n, hn⟩ := ih a (by simp only [Tm.size]; omega) haF
+      (lt_transY haF hz hσ (lt_om_selfY hz) hzσ) (hcf.par hz (by simp [parF]))
+    exact F.om a n haF hn
+  | Xi j b =>
+    have hj : j = k := hl
+    subst hj
+    have hbF := hz.xi.2.1
+    have hne : b ≠ e := fun h => by rw [h] at hzσ; exact Lt.irrefl _ hzσ
+    rcases (lt_xi_xi0 hne).mp hzσ with ⟨hbe, -⟩ | ⟨heb, hnC⟩
+    · obtain ⟨N, hN⟩ := exists_bound (P := fun _ => True) F.F F.mono (fr (.M j) b)
+        (fun w hw => hbF.of_mem_subs (fr_spec hw).1)
+        (fun w hw _ => ih w (by
+            have := size_le_of_mem_subs (fr_spec hw).1; simp only [Tm.size]; omega)
+          (hbF.of_mem_subs (fr_spec hw).1)
+          (lt_transY (hbF.of_mem_subs (fr_spec hw).1) hz hσ (k2xY hz w hw) hzσ)
+          (hcf.par hz (show w ∈ parF (.Xi j b) from hw)))
+      exact F.clo b N hz hzσ hbe (fun w hw => hN w hw trivial)
+    · exact ⟨0, hBy _ hz (lt_base_of_not_inC hσ hBF hz hzσ hbF (Or.inr heb) hnC)⟩
+  | Psi κ b =>
+    have hQ := hz.psi
+    have hκF := hQ.piF
+    have hlκ : lev κ = k := hl
+    have hcl : collOf (.Xi k e) κ = false := by
+      rcases hQ.tgt with h | ⟨c₀, h, -⟩ | ⟨m', δ, h⟩ <;> rw [h] <;> rfl
+    rcases triY hκF hσ with hκσ | hκe | hσκ
+    · obtain ⟨n, hn⟩ := ih κ (by simp only [Tm.size]; omega) hκF hκσ (hcf.tgt hz hcl)
+      exact ⟨n, lt_transY hz hκF (F.F n) (lt_psi_targetY hz) hn⟩
+    · subst hκe
+      have hle := hcf _ hz (collOf_psi _ _) (Or.inl rfl) (selfVis_self (Or.inr ⟨_, _, rfl⟩))
+      obtain ⟨n, hn⟩ := hG
+      exact ⟨n, lt_of_le_of_ltY hz hGF (F.F n) hle hn⟩
+    · have hlκσ : lev κ = lev (Tm.Xi k e) := hlκ
+      have hnb := not_base_of_lt_tgtY hz hσ hσT hlκσ hσκ hzσ
+      by_cases hkz : Lt (kTerm (k - 1)) (.Psi κ b)
+      · have hnC : inC e e (.Psi κ b) = false := by
+          cases h2 : inC e e (.Psi κ b) with
+          | false => rfl
+          | true => rw [(baseOf_xi_iff k e _).mpr ⟨hkz, h2⟩] at hnb; cases hnb
+        exact ⟨0, hBy _ hz (lt_base_of_not_inC hσ hBF hz hzσ heF (Or.inl rfl) hnC)⟩
+      · exact ⟨0, lt_of_le_of_ltY hz (wnf_kTerm _) (F.F 0) (le_of_not_ltY (wnf_kTerm _) hz hkz) F.bot⟩
+
+/-- 種 `p`（`σ` の始点以上）の族の閉包の列について、見える `Ψ_σ(·)` が全て `G`（`y_ξ` 未満）以下で
+`τ` についての極大部分項が `ξ` 未満の `σ` 未満の項は `y_ξ` の下（正則項型） -/
+theorem cf_lt_fam_big {k : Nat} {e p τ G : Tm} {y : Tm → Tm} (hσ : WNF (.Xi k e))
+    (hpF : WNF p) (hBp : Le (.Psi (.Xi k e) (sc e)) p) (F : FamBig k e (some p) τ y)
+    {ξ : Tm} (hξ : WNF ξ) (hξ0 : Lt .zero ξ) (hξτ : Lt ξ τ) (hGF : WNF G) (hG : Lt G (y ξ)) :
+    ∀ z, WNF z → Lt z (.Xi k e) → CF (collOf (.Xi k e)) G z → (∀ f, f ∈ lfr τ z → Lt f ξ) →
+      Lt z (y ξ) := by
+  have hm : 1 ≤ k := hσ.xi.1
+  have heF := hσ.xi.2.1
+  have hBF : WNF (.Psi (.Xi k e) (sc e)) := wnf_base_xi hσ
+  have hτF := F.σF
+  have hσT : IsTgt (Tm.Xi k e) := Or.inr (Or.inr ⟨k, e, rfl⟩)
+  have hyF := F.F ξ hξ hξτ
+  have hy0F := F.F .zero WNF.zero F.pos
+  have hy0 := F.le0 hξ hξτ
+  have hBy : ∀ z, WNF z → Lt z (.Psi (.Xi k e) (sc e)) → Lt z (y ξ) := fun z hz h =>
+    lt_of_lt_of_leY hz hy0F hyF
+      (lt_transY hz hpF hy0F (lt_of_lt_of_leY hz hBF hpF h hBp) (F.seed p rfl)) hy0
+  have hτM : Le τ (.M k) :=
+    Or.inr (lt_transY hτF hσ (WNF.M' hm) F.σρ (xi_lt_M e))
+  intro z
+  induction z using size_induction with
+  | h z ih =>
+  intro hz hzσ hcf hlfr
+  by_cases hzτ : Lt z τ
+  · exact lt_transY hz hξ hyF (hlfr z (by rw [lfr_of_lt hzτ]; exact List.mem_singleton.mpr rfl))
+      (F.ge ξ hξ hξτ)
+  have hlev : lev z ≤ k := by have := lev_le_of_lt_gen hzσ; simpa [lev] using this
+  rcases Nat.lt_or_eq_of_le hlev with hl | hl
+  · exact lt_of_lt_of_leY hz hy0F hyF (lt_y0_of_lev_big F hm hz hl) hy0
+  cases z with
+  | zero => exfalso; simp only [lev] at hl; omega
+  | M j =>
+    exact lt_of_lt_of_leY hz hy0F hyF
+      (lt_of_le_of_ltY hz (wnf_kTerm _) hy0F (M_le_floor hz hl) F.bot) hy0
+  | plus a b =>
+    obtain ⟨ha, -, -, -⟩ := hz.plus
+    exact (lt_plus_prin_iffY hz (F.prin ξ)).mpr (ih a (by simp only [Tm.size]; omega) ha
+      (lt_transY ha hz hσ (lt_plus_leftY hz) hzσ) (hcf.par hz (by simp [parF]))
+      (fun f hf => hlfr f ((mem_lfr_plus hzτ).mpr (Or.inl hf))))
+  | Om a =>
+    have haF := hz.om.1
+    exact (lt_om_OFG (F.OF ξ) hyF).mpr (ih a (by simp only [Tm.size]; omega) haF
+      (lt_transY haF hz hσ (lt_om_selfY hz) hzσ) (hcf.par hz (by simp [parF]))
+      (fun f hf => hlfr f ((mem_lfr_om hzτ).mpr hf)))
+  | Xi j b =>
+    have hj : j = k := hl
+    subst hj
+    have hbF := hz.xi.2.1
+    have hne : b ≠ e := fun h => by rw [h] at hzσ; exact Lt.irrefl _ hzσ
+    rcases (lt_xi_xi0 hne).mp hzσ with ⟨hbe, -⟩ | ⟨heb, hnC⟩
+    · refine F.clo b ξ hz hzσ hbe hξ hξ0 hξτ (fun f hf => hlfr f ((mem_lfr_xi hzτ).mpr hf))
+        (fun w hw => ?_)
+      have hwF := hbF.of_mem_subs (fr_spec hw).1
+      refine ih w (by have := size_le_of_mem_subs (fr_spec hw).1; simp only [Tm.size]; omega) hwF
+        (lt_transY hwF hz hσ (k2xY hz w hw) hzσ) (hcf.par hz (show w ∈ parF (.Xi j b) from hw))
+        (fun f hf => ?_)
+      obtain ⟨f', hf', hle⟩ := lfr_of_fr (WNF.M' hm) hτF hbF hw hf
+      exact lt_of_le_of_ltY (hwF.of_mem_subs (lfr_spec hf).1) (hbF.of_mem_subs (lfr_spec hf').1) hξ
+        hle (hlfr f' ((mem_lfr_xi hzτ).mpr hf'))
+    · exact hBy _ hz (lt_base_of_not_inC hσ hBF hz hzσ hbF (Or.inr heb) hnC)
+  | Psi κ b =>
+    have hQ := hz.psi
+    have hκF := hQ.piF
+    have hlκ : lev κ = k := hl
+    have hcl : collOf (.Xi k e) κ = false := by
+      rcases hQ.tgt with h | ⟨c₀, h, -⟩ | ⟨m', δ, h⟩ <;> rw [h] <;> rfl
+    rcases triY hκF hσ with hκσ | hκe | hσκ
+    · have h1 := ih κ (by simp only [Tm.size]; omega) hκF hκσ (hcf.tgt hz hcl)
+        (fun f hf => hlfr f ((mem_lfr_psi hzτ).mpr (Or.inl hf)))
+      exact lt_transY hz hκF hyF (lt_psi_targetY hz) h1
+    · subst hκe
+      have hle := hcf _ hz (collOf_psi _ _) (Or.inl rfl) (selfVis_self (Or.inr ⟨_, _, rfl⟩))
+      exact lt_of_le_of_ltY hz hGF hyF hle hG
+    · have hlκσ : lev κ = lev (Tm.Xi k e) := hlκ
+      have hnb := not_base_of_lt_tgtY hz hσ hσT hlκσ hσκ hzσ
+      by_cases hkz : Lt (kTerm (k - 1)) (.Psi κ b)
+      · have hnC : inC e e (.Psi κ b) = false := by
+          cases h2 : inC e e (.Psi κ b) with
+          | false => rfl
+          | true => rw [(baseOf_xi_iff k e _).mpr ⟨hkz, h2⟩] at hnb; cases hnb
+        exact hBy _ hz (lt_base_of_not_inC hσ hBF hz hzσ heF (Or.inl rfl) hnC)
+      · exact lt_of_lt_of_leY hz hy0F hyF
+          (lt_of_le_of_ltY hz (wnf_kTerm _) hy0F (le_of_not_ltY (wnf_kTerm _) hz hkz) F.bot) hy0
+
+/-! ### 対角化の文脈 -/
+/-- 外に足す型の対角化で `Ψ_σ(X) ≤ t` の場合の文脈：`σ = Ξ_k(e)`、種 `p = a2Seed σ π`、調整 `c` -/
 structure A2 (π X R : Tm) (pre : List Tm) (k : Nat) (e p c : Tm) : Prop where
   ht : WNF (.Psi π X)
   hsX : summands X = pre ++ [R]
@@ -562,10 +778,10 @@ structure A2 (π X R : Tm) (pre : List Tm) (k : Nat) (e p c : Tm) : Prop where
   hlev : lev π = k
   hkey : baseOf π (.Psi (.Xi k e) X) = false
   hnb : baseOf π (.Psi (.Xi k e) (sc e)) = false
-  hpm : p ∈ fr π π
-  hpmax : maxL (frB π π) = some p
-  hBp : Le (.Psi (.Xi k e) (sc e)) p
+  /-- 種 `p` は `π` の前線の中で見える `Ψ_σ(·)` の最大のもの（`σ` の始点以上） -/
+  hp0 : p = a2Seed (.Xi k e) π
   hadj : AdjOK π pre R (fundBig R .zero) c
+  hmk : mkApp π (.psi π) pre R (info R).seq .zero .zero = some (.app π (.psi π) pre R (info R).seq .zero c)
   hcs : cs π X = .iapp (.psi π) pre (info R).seq .zero c (mahloVK k e (info e).sums (.Xi k e) (some p))
   hRinv : ∀ a, a ∈ summands e → Inv a
 
@@ -576,12 +792,30 @@ variable {π X R : Tm} {pre : List Tm} {k : Nat} {e p c : Tm}
 theorem hσ (H : A2 π X R pre k e p c) : WNF (.Xi k e) := H.hRi.props.σF
 theorem hπ (H : A2 π X R pre k e p c) : WNF π := H.ht.psi.piF
 theorem hBF (H : A2 π X R pre k e p c) : WNF (.Psi (.Xi k e) (sc e)) := wnf_base_xi H.hσ
-theorem hpF (H : A2 π X R pre k e p c) : WNF p := (fr_elem H.hπ H.hpm).1
-theorem hpπ (H : A2 π X R pre k e p c) : Lt p π := (fr_elem H.hπ H.hpm).2.1
-theorem hpσ (H : A2 π X R pre k e p c) : Lt p (.Xi k e) := lt_transY H.hpF H.hπ H.hσ H.hpπ H.hπσ
-theorem hpmax' (H : A2 π X R pre k e p c) : ∀ w, w ∈ fr π π → Le w p := fun w hw =>
-  maxL_le (fun x hx => by rw [frB_eq_fr] at hx; exact (fr_elem H.hπ hx).1) H.hpmax w
-    (by rw [frB_eq_fr]; exact hw)
+
+theorem hpF (H : A2 π X R pre k e p c) : WNF p := by
+  rw [H.hp0]; exact a2Seed_wnf H.hπ H.hσ
+
+/-- 種は `Ψ_σ(β)` -/
+theorem hpform (H : A2 π X R pre k e p c) : ∃ β, p = .Psi (.Xi k e) β ∧ WNF (.Psi (.Xi k e) β) := by
+  obtain ⟨β, h, hW⟩ := a2Seed_form H.hπ H.hσ
+  exact ⟨β, H.hp0.trans h, hW⟩
+
+theorem hprin (H : A2 π X R pre k e p c) : isPrincipal p = true := by
+  obtain ⟨β, h, -⟩ := H.hpform
+  rw [h]; rfl
+
+theorem hBp (H : A2 π X R pre k e p c) : Le (.Psi (.Xi k e) (sc e)) p := by
+  rw [H.hp0]; exact a2Seed_ge H.hπ H.hσ
+
+/-- 種は `σ` 未満 -/
+theorem hpσ (H : A2 π X R pre k e p c) : Lt p (.Xi k e) := by
+  obtain ⟨β, h, hW⟩ := H.hpform
+  rw [h]; exact lt_psi_targetY hW
+
+/-- `π` の前線の中の見える `Ψ_σ(·)` は種以下 -/
+theorem hpcf (H : A2 π X R pre k e p c) : ∀ w, w ∈ fr π π → CF (collOf (.Xi k e)) p w :=
+  fun w hw => by rw [H.hp0]; exact a2Seed_cf H.hπ H.hσ hw
 
 /-- `σ` の始点は全ての `Ψ_π(A)` 未満 -/
 theorem hBlt (H : A2 π X R pre k e p c) (A : Tm) : Lt (.Psi (.Xi k e) (sc e)) (.Psi π A) := by
@@ -609,12 +843,12 @@ theorem psi_σ_lt (H : A2 π X R pre k e p c) {b : Tm} (hb : WNF (.Psi (.Xi k e)
       rw [h1] at h2; cases h2
   exact (lt_psi_psiY hlevσ).mpr (Or.inr (Or.inl ⟨fun h => Lt.ne H.hπσ h.symm, H.hπσ, hnbz⟩))
 
-/-- `π ≠ Ω_0`（前線が空でない） -/
+/-- `π ≠ Ω_0`（`Ω_0` の底の条件は始点で成り立つ） -/
 theorem π_ne (H : A2 π X R pre k e p c) : π ≠ .Om .zero := by
   intro h
-  have := H.hpm
-  rw [h] at this
-  simp [fr] at this
+  have hnb := H.hnb
+  rw [h, (baseOf_om_zero _).mpr (by intro e; cases e)] at hnb
+  cases hnb
 
 end A2
 
@@ -624,7 +858,7 @@ theorem famNat_a2 {π X R : Tm} {pre : List Tm} {k : Nat} {e p c : Tm} (H : A2 �
     FamNat k e (some p) (fun n => (mahloVK k e (info e).sums (.Xi k e) (some p)).nat n) := by
   have hσ := H.hσ
   have hP : ∀ p', some p = some p' → WNF p' ∧ Lt p' (.Xi k e) ∧ isPrincipal p' = true :=
-    fun p' hp' => by cases hp'; exact ⟨H.hpF, H.hpσ, (fr_elem H.hπ H.hpm).2.2.1⟩
+    fun p' hp' => by cases hp'; exact ⟨H.hpF, H.hpσ, H.hprin⟩
   by_cases he0 : e = .zero
   · subst he0; exact famNat_vk_zero hσ hP
   by_cases hs : isSucc e = true
@@ -642,7 +876,7 @@ theorem famBig_a2 {π X R : Tm} {pre : List Tm} {k : Nat} {e p c τ : Tm} (H : A
     FamBig k e (some p) τ (fun ξ => (mahloVK k e (info e).sums (.Xi k e) (some p)).big ξ) := by
   have hσ := H.hσ
   have hP : ∀ p', some p = some p' → WNF p' ∧ Lt p' (.Xi k e) ∧ isPrincipal p' = true :=
-    fun p' hp' => by cases hp'; exact ⟨H.hpF, H.hpσ, (fr_elem H.hπ H.hpm).2.2.1⟩
+    fun p' hp' => by cases hp'; exact ⟨H.hpF, H.hpσ, H.hprin⟩
   by_cases he0 : e = .zero
   · exfalso
     subst he0
@@ -664,26 +898,28 @@ theorem pi_lt_fam_nat {π X R : Tm} {pre : List Tm} {k : Nat} {e p c : Tm} (H : 
   have hπ := H.hπ
   have hσ := H.hσ
   have hm : 1 ≤ k := hσ.xi.1
-  have hy0p : Lt p (y 0) := F.seed p rfl
-  have hfry : ∀ w, w ∈ fr π π → Lt w (y 0) := fun w hw =>
-    lt_of_le_of_ltY (fr_elem hπ hw).1 H.hpF (F.F 0) (H.hpmax' w hw) hy0p
+  have hfry : ∀ w, w ∈ fr π π → ∃ n, Lt w (y n) := fun w hw =>
+    cf_lt_fam_nat hσ H.hpF H.hBp F H.hpF ⟨0, F.seed p rfl⟩ w (fr_elem hπ hw).1
+      (lt_transY (fr_elem hπ hw).1 hπ hσ (fr_elem hπ hw).2.1 H.hπσ) (H.hpcf w hw)
   have hlev := H.hlev
   have hπT := H.ht.psi.tgt
   rcases hπT with rfl | ⟨c₀, rfl, hs⟩ | ⟨m, δ, rfl⟩
   · exact absurd rfl H.π_ne
   · have hcF := hπ.om.1
-    obtain ⟨n, hn⟩ := below_fam_nat F hm hπ (Nat.le_of_eq hlev) c₀ hcF (lt_om_selfY hπ)
-      (fun w hw => ⟨0, hfry w hw⟩)
+    obtain ⟨n, hn⟩ := below_fam_nat F hm hπ (Nat.le_of_eq hlev) c₀ hcF (lt_om_selfY hπ) hfry
     exact F.om c₀ n hcF hn
   · have hmk : m = k := hlev
     subst hmk
     have hδF := hπ.xi.2.1
     have hne : δ ≠ e := fun h => by rw [h] at H; exact Lt.irrefl _ H.hπσ
     rcases (lt_xi_xi0 hne).mp H.hπσ with ⟨hδe, -⟩ | ⟨heδ, hnC⟩
-    · refine F.clo δ 0 hπ H.hπσ hδe (fun w hw => ?_)
-      have hwπ := k2xY hπ w hw
-      have hw' : w ∈ fr (.Xi m δ) δ := fr_subY (WNF.M' hm) hπ (Or.inr (xi_lt_M δ)) hδF hw hwπ
-      exact hfry w (by rw [fr_xi_self]; exact hw')
+    · have hfr' : ∀ w, w ∈ fr (.M m) δ → w ∈ fr (.Xi m δ) (.Xi m δ) := fun w hw => by
+        rw [fr_xi_self]
+        exact fr_subY (WNF.M' hm) hπ (Or.inr (xi_lt_M δ)) hδF hw (k2xY hπ w hw)
+      obtain ⟨N, hN⟩ := exists_bound (P := fun _ => True) F.F F.mono (fr (.M m) δ)
+        (fun w hw => hδF.of_mem_subs (fr_spec hw).1)
+        (fun w hw _ => hfry w (hfr' w hw))
+      exact F.clo δ N hπ H.hπσ hδe (fun w hw => hN w hw trivial)
     · exfalso
       have h1 := lt_base_of_not_inC hσ H.hBF hπ H.hπσ hδF (Or.inr heδ) hnC
       exact Lt.asymmY H.hBF hπ H.hBπ h1
@@ -701,12 +937,17 @@ theorem pi_lt_fam_big {π X R : Tm} {pre : List Tm} {k : Nat} {e p c τ : Tm} (H
   have hσ := H.hσ
   have hm : 1 ≤ k := hσ.xi.1
   have hyF := F.F ξ hξ hξτ
-  have hy0F := F.F .zero WNF.zero F.pos
-  have hfry : ∀ w, w ∈ fr π π → Lt w (y ξ) := fun w hw =>
-    lt_of_lt_of_leY (fr_elem hπ hw).1 hy0F hyF
-      (lt_of_le_of_ltY (fr_elem hπ hw).1 H.hpF hy0F (H.hpmax' w hw) (F.seed p rfl)) (F.le0 hξ hξτ)
   have hτπ : Lt τ π := lt_transY F.σF H.hBF hπ (tau_lt_base H F) H.hBπ
   have hπτ : ¬ Lt π τ := Lt.asymmY F.σF hπ hτπ
+  have hpy : Lt p (y ξ) :=
+    lt_of_lt_of_leY H.hpF (F.F .zero WNF.zero F.pos) hyF (F.seed p rfl) (F.le0 hξ hξτ)
+  have hfry : ∀ w, w ∈ fr π π → Lt w (y ξ) := fun w hw => by
+    have hwF := (fr_elem hπ hw).1
+    refine cf_lt_fam_big hσ H.hpF H.hBp F hξ hξ0 hξτ H.hpF hpy w hwF
+      (lt_transY hwF hπ hσ (fr_elem hπ hw).2.1 H.hπσ) (H.hpcf w hw) (fun f hf => ?_)
+    obtain ⟨g, hg, hle⟩ := lfr_of_fr hπ F.σF hπ hw hf
+    exact lt_of_le_of_ltY (hwF.of_mem_subs (lfr_spec hf).1) (hπ.of_mem_subs (lfr_spec hg).1) hξ
+      hle (hlfr g hg)
   have hlev := H.hlev
   have hπT := H.ht.psi.tgt
   rcases hπT with rfl | ⟨c₀, rfl, hs⟩ | ⟨m, δ, rfl⟩
@@ -730,92 +971,29 @@ theorem pi_lt_fam_big {π X R : Tm} {pre : List Tm} {k : Nat} {e p c τ : Tm} (H
 
 /-! ### 包の元は添字の列の下 -/
 
+/-- `C(g, d)`（`d < t`、`g ≤ X`）の元の中で見える `Ψ_σ(·)` は `t` 未満（`d` 未満か、引数が `X` 未満） -/
+theorem cf_of_inC {π X R : Tm} {pre : List Tm} {k : Nat} {e p c : Tm} (H : A2 π X R pre k e p c)
+    {g d z : Tm} (hg : WNF g) (hd : WNF d) (hdt : Lt d (.Psi π X)) (hgX : Le g X) (hz : WNF z)
+    (hzC : inC z g d = true) : CF (collOf (.Xi k e)) (.Psi π X) z := by
+  intro w hwF hcl _ hv
+  obtain ⟨b, rfl⟩ := collOf_true hcl
+  refine Or.inr ?_
+  by_cases hwd : Lt (.Psi (.Xi k e) b) d
+  · exact lt_transY hwF hd H.ht hwd hdt
+  · rcases inC_psi_iff.mp (inC_of_selfVis hwF (Cut.of_wnf hd) hz hv hzC) with h1 | ⟨-, -, hbg⟩
+    · exact absurd h1 hwd
+    · exact H.psi_σ_lt hwF (lt_of_lt_of_leY hwF.psi.aF hg H.ht.psi.aF hbg hgX)
+
 /-- `C(g, d)`（`d < t`、`g ≤ X`）の `σ` 未満の元は族の閉包の列の下（`ω` 型） -/
 theorem hull_nat {π X R : Tm} {pre : List Tm} {k : Nat} {e p c : Tm} (H : A2 π X R pre k e p c)
     {y : Nat → Tm} (F : FamNat k e (some p) y) {g d : Tm} (hg : WNF g) (hd : WNF d)
     (hdt : Lt d (.Psi π X)) (hgX : Le g X) :
     ∀ z, WNF z → Lt z (.Xi k e) → inC z g d = true → ∃ n, Lt z (y n) := by
-  have ht := H.ht
-  have hX := ht.psi.aF
-  have hπ := H.hπ
-  have hσ := H.hσ
-  have hm : 1 ≤ k := hσ.xi.1
-  have heF := hσ.xi.2.1
-  have hBF := H.hBF
-  have hpF := H.hpF
-  have hσT : IsTgt (Tm.Xi k e) := Or.inr (Or.inr ⟨k, e, rfl⟩)
   obtain ⟨n0, hn0⟩ := pi_lt_fam_nat H F
-  have hy0p : Lt p (y 0) := F.seed p rfl
-  have hBy : ∀ z, WNF z → Lt z (.Psi (.Xi k e) (sc e)) → Lt z (y 0) := fun z hz h =>
-    lt_transY hz hpF (F.F 0) (lt_of_lt_of_leY hz hBF hpF h H.hBp) hy0p
-  have hty : ∀ z, WNF z → Lt z (.Psi π X) → Lt z (y n0) := fun z hz h =>
-    lt_transY hz hπ (F.F n0) (lt_transY hz ht hπ h (lt_psi_targetY ht)) hn0
-  intro z
-  induction z using size_induction with
-  | h z ih =>
-  intro hz hzσ hzC
-  by_cases hzd : Lt z d
-  · exact ⟨n0, hty z hz (lt_transY hz hd ht hzd hdt)⟩
-  have hdz : Le d z := le_of_not_ltY hz hd hzd
-  have hlev : lev z ≤ k := by have := lev_le_of_lt_gen hzσ; simpa [lev] using this
-  rcases Nat.lt_or_eq_of_le hlev with hl | hl
-  · exact ⟨0, lt_y0_of_lev F hm hz hl⟩
-  cases z with
-  | zero => exfalso; simp only [lev] at hl; omega
-  | M j => exact ⟨0, lt_of_le_of_ltY hz (wnf_kTerm _) (F.F 0) (M_le_floor hz hl) F.bot⟩
-  | plus a b =>
-    obtain ⟨ha, -, -, -⟩ := hz.plus
-    rw [inC_plus, Bool.and_eq_true] at hzC
-    obtain ⟨n, hn⟩ := ih a (by simp only [Tm.size]; omega) ha
-      (lt_transY ha hz hσ (lt_plus_leftY hz) hzσ) hzC.1
-    exact ⟨n, (lt_plus_prin_iffY hz (F.prin n)).mpr hn⟩
-  | Om a =>
-    have haF := hz.om.1
-    rw [inC_om] at hzC
-    obtain ⟨n, hn⟩ := ih a (by simp only [Tm.size]; omega) haF
-      (lt_transY haF hz hσ (lt_om_selfY hz) hzσ) hzC
-    exact F.om a n haF hn
-  | Xi j b =>
-    have hj : j = k := hl
-    subst hj
-    rcases inC_xi_iff.mp hzC with h1 | ⟨hbC, hbg⟩
-    · exact absurd h1 hzd
-    have hbF := hz.xi.2.1
-    have hne : b ≠ e := fun h => by rw [h] at hzσ; exact Lt.irrefl _ hzσ
-    rcases (lt_xi_xi0 hne).mp hzσ with ⟨hbe, -⟩ | ⟨heb, hnC⟩
-    · have hfrC : ∀ w, w ∈ fr (.M j) b → inC w g d = true := fun w hw => by
-        have hw' : w ∈ fr (.Xi j b) b := fr_subY (WNF.M' hm) hz (Or.inr (xi_lt_M b)) hbF hw (k2xY hz w hw)
-        exact (inC_fr b (xi_selfY hz)
-          (fun v hv hvz hvd => hvz (lt_of_lt_of_leY (hbF.of_mem_subs hv) hd hz hvd hdz))
-          (fun v hv hvb => lt_transY (hbF.of_mem_subs hv) hbF hg hvb hbg)).mp hbC w hw'
-      obtain ⟨N, hN⟩ := exists_bound (P := fun _ => True) F.F F.mono (fr (.M j) b)
-        (fun w hw => hbF.of_mem_subs (fr_spec hw).1)
-        (fun w hw _ => ih w (by
-            have := size_le_of_mem_subs (fr_spec hw).1; simp only [Tm.size]; omega)
-          (hbF.of_mem_subs (fr_spec hw).1)
-          (lt_transY (hbF.of_mem_subs (fr_spec hw).1) hz hσ (k2xY hz w hw) hzσ) (hfrC w hw))
-      exact F.clo b N hz hzσ hbe (fun w hw => hN w hw trivial)
-    · exact ⟨0, hBy _ hz (lt_base_of_not_inC hσ hBF hz hzσ hbF (Or.inr heb) hnC)⟩
-  | Psi κ b =>
-    have hQ := hz.psi
-    have hκF := hQ.piF
-    have hlκ : lev κ = k := hl
-    rcases inC_psi_iff.mp hzC with h1 | ⟨hκC, -, hbg⟩
-    · exact absurd h1 hzd
-    rcases triY hκF hσ with hκσ | hκe | hσκ
-    · obtain ⟨n, hn⟩ := ih κ (by simp only [Tm.size]; omega) hκF hκσ hκC
-      exact ⟨n, lt_transY hz hκF (F.F n) (lt_psi_targetY hz) hn⟩
-    · subst hκe
-      exact ⟨n0, hty _ hz (H.psi_σ_lt hz (lt_of_lt_of_leY hQ.aF hg hX hbg hgX))⟩
-    · have hlκσ : lev κ = lev (Tm.Xi k e) := hlκ
-      have hnb := not_base_of_lt_tgtY hz hσ hσT hlκσ hσκ hzσ
-      by_cases hkz : Lt (kTerm (k - 1)) (.Psi κ b)
-      · have hnC : inC e e (.Psi κ b) = false := by
-          cases h2 : inC e e (.Psi κ b) with
-          | false => rfl
-          | true => rw [(baseOf_xi_iff k e _).mpr ⟨hkz, h2⟩] at hnb; cases hnb
-        exact ⟨0, hBy _ hz (lt_base_of_not_inC hσ hBF hz hzσ heF (Or.inl rfl) hnC)⟩
-      · exact ⟨0, lt_of_le_of_ltY hz (wnf_kTerm _) (F.F 0) (le_of_not_ltY (wnf_kTerm _) hz hkz) F.bot⟩
+  intro z hz hzσ hzC
+  exact cf_lt_fam_nat H.hσ H.hpF H.hBp F H.ht
+    ⟨n0, lt_transY H.ht H.hπ (F.F n0) (lt_psi_targetY H.ht) hn0⟩ z hz hzσ
+    (cf_of_inC H hg hd hdt hgX hz hzC)
 
 /-- `C(g, d)`（`d < t`、`g ≤ X`）の `σ` 未満の元で `τ` についての極大部分項が `ξ` 未満のものは
 `y_ξ` の下（正則項型） -/
@@ -823,100 +1001,10 @@ theorem hull_big {π X R : Tm} {pre : List Tm} {k : Nat} {e p c τ : Tm} (H : A2
     {y : Tm → Tm} (F : FamBig k e (some p) τ y) {ξ : Tm} (hξ : WNF ξ) (hξ0 : Lt .zero ξ)
     (hξτ : Lt ξ τ) (hπy : Lt π (y ξ)) {g d : Tm} (hg : WNF g) (hd : WNF d)
     (hdt : Lt d (.Psi π X)) (hgX : Le g X) :
-    ∀ z, WNF z → Lt z (.Xi k e) → inC z g d = true → (∀ f, f ∈ lfr τ z → Lt f ξ) → Lt z (y ξ) := by
-  have ht := H.ht
-  have hX := ht.psi.aF
-  have hπ := H.hπ
-  have hσ := H.hσ
-  have hm : 1 ≤ k := hσ.xi.1
-  have heF := hσ.xi.2.1
-  have hBF := H.hBF
-  have hpF := H.hpF
-  have hτF := F.σF
-  have hσT : IsTgt (Tm.Xi k e) := Or.inr (Or.inr ⟨k, e, rfl⟩)
-  have hyF := F.F ξ hξ hξτ
-  have hy0F := F.F .zero WNF.zero F.pos
-  have hy0 := F.le0 hξ hξτ
-  have hBy : ∀ z, WNF z → Lt z (.Psi (.Xi k e) (sc e)) → Lt z (y ξ) := fun z hz h =>
-    lt_of_lt_of_leY hz hy0F hyF
-      (lt_transY hz hpF hy0F (lt_of_lt_of_leY hz hBF hpF h H.hBp) (F.seed p rfl)) hy0
-  have hty : ∀ z, WNF z → Lt z (.Psi π X) → Lt z (y ξ) := fun z hz h =>
-    lt_transY hz hπ hyF (lt_transY hz ht hπ h (lt_psi_targetY ht)) hπy
-  have hτM : Le τ (.M k) :=
-    Or.inr (lt_transY hτF hσ (WNF.M' hm) F.σρ (xi_lt_M e))
-  intro z
-  induction z using size_induction with
-  | h z ih =>
-  intro hz hzσ hzC hlfr
-  by_cases hzτ : Lt z τ
-  · exact lt_transY hz hξ hyF (hlfr z (by rw [lfr_of_lt hzτ]; exact List.mem_singleton.mpr rfl))
-      (F.ge ξ hξ hξτ)
-  by_cases hzd : Lt z d
-  · exact hty z hz (lt_transY hz hd ht hzd hdt)
-  have hdz : Le d z := le_of_not_ltY hz hd hzd
-  have hlev : lev z ≤ k := by have := lev_le_of_lt_gen hzσ; simpa [lev] using this
-  rcases Nat.lt_or_eq_of_le hlev with hl | hl
-  · exact lt_of_lt_of_leY hz hy0F hyF (lt_y0_of_lev_big F hm hz hl) hy0
-  cases z with
-  | zero => exfalso; simp only [lev] at hl; omega
-  | M j =>
-    exact lt_of_lt_of_leY hz hy0F hyF
-      (lt_of_le_of_ltY hz (wnf_kTerm _) hy0F (M_le_floor hz hl) F.bot) hy0
-  | plus a b =>
-    obtain ⟨ha, -, -, -⟩ := hz.plus
-    rw [inC_plus, Bool.and_eq_true] at hzC
-    exact (lt_plus_prin_iffY hz (F.prin ξ)).mpr (ih a (by simp only [Tm.size]; omega) ha
-      (lt_transY ha hz hσ (lt_plus_leftY hz) hzσ) hzC.1
-      (fun f hf => hlfr f ((mem_lfr_plus hzτ).mpr (Or.inl hf))))
-  | Om a =>
-    have haF := hz.om.1
-    rw [inC_om] at hzC
-    exact (lt_om_OFG (F.OF ξ) hyF).mpr (ih a (by simp only [Tm.size]; omega) haF
-      (lt_transY haF hz hσ (lt_om_selfY hz) hzσ) hzC (fun f hf => hlfr f ((mem_lfr_om hzτ).mpr hf)))
-  | Xi j b =>
-    have hj : j = k := hl
-    subst hj
-    rcases inC_xi_iff.mp hzC with h1 | ⟨hbC, hbg⟩
-    · exact absurd h1 hzd
-    have hbF := hz.xi.2.1
-    have hne : b ≠ e := fun h => by rw [h] at hzσ; exact Lt.irrefl _ hzσ
-    rcases (lt_xi_xi0 hne).mp hzσ with ⟨hbe, -⟩ | ⟨heb, hnC⟩
-    · have hfrC : ∀ w, w ∈ fr (.M j) b → inC w g d = true := fun w hw => by
-        have hw' : w ∈ fr (.Xi j b) b := fr_subY (WNF.M' hm) hz (Or.inr (xi_lt_M b)) hbF hw (k2xY hz w hw)
-        exact (inC_fr b (xi_selfY hz)
-          (fun v hv hvz hvd => hvz (lt_of_lt_of_leY (hbF.of_mem_subs hv) hd hz hvd hdz))
-          (fun v hv hvb => lt_transY (hbF.of_mem_subs hv) hbF hg hvb hbg)).mp hbC w hw'
-      refine F.clo b ξ hz hzσ hbe hξ hξ0 hξτ (fun f hf => hlfr f ((mem_lfr_xi hzτ).mpr hf))
-        (fun w hw => ?_)
-      have hwF := hbF.of_mem_subs (fr_spec hw).1
-      refine ih w (by have := size_le_of_mem_subs (fr_spec hw).1; simp only [Tm.size]; omega) hwF
-        (lt_transY hwF hz hσ (k2xY hz w hw) hzσ) (hfrC w hw) (fun f hf => ?_)
-      obtain ⟨f', hf', hle⟩ := lfr_of_fr (WNF.M' hm) hτF hτM hbF hw hf
-      exact lt_of_le_of_ltY (hwF.of_mem_subs (lfr_spec hf).1) (hbF.of_mem_subs (lfr_spec hf').1) hξ
-        hle (hlfr f' ((mem_lfr_xi hzτ).mpr hf'))
-    · exact hBy _ hz (lt_base_of_not_inC hσ hBF hz hzσ hbF (Or.inr heb) hnC)
-  | Psi κ b =>
-    have hQ := hz.psi
-    have hκF := hQ.piF
-    have hlκ : lev κ = k := hl
-    rcases inC_psi_iff.mp hzC with h1 | ⟨hκC, -, hbg⟩
-    · exact absurd h1 hzd
-    rcases triY hκF hσ with hκσ | hκe | hσκ
-    · have h1 := ih κ (by simp only [Tm.size]; omega) hκF hκσ hκC
-        (fun f hf => hlfr f ((mem_lfr_psi hzτ).mpr (Or.inl hf)))
-      exact lt_transY hz hκF hyF (lt_psi_targetY hz) h1
-    · subst hκe
-      exact hty _ hz (H.psi_σ_lt hz (lt_of_lt_of_leY hQ.aF hg hX hbg hgX))
-    · have hlκσ : lev κ = lev (Tm.Xi k e) := hlκ
-      have hnb := not_base_of_lt_tgtY hz hσ hσT hlκσ hσκ hzσ
-      by_cases hkz : Lt (kTerm (k - 1)) (.Psi κ b)
-      · have hnC : inC e e (.Psi κ b) = false := by
-          cases h2 : inC e e (.Psi κ b) with
-          | false => rfl
-          | true => rw [(baseOf_xi_iff k e _).mpr ⟨hkz, h2⟩] at hnb; cases hnb
-        exact hBy _ hz (lt_base_of_not_inC hσ hBF hz hzσ heF (Or.inl rfl) hnC)
-      · exact lt_of_lt_of_leY hz hy0F hyF
-          (lt_of_le_of_ltY hz (wnf_kTerm _) hy0F (le_of_not_ltY (wnf_kTerm _) hz hkz) F.bot) hy0
+    ∀ z, WNF z → Lt z (.Xi k e) → inC z g d = true → (∀ f, f ∈ lfr τ z → Lt f ξ) → Lt z (y ξ) :=
+  fun z hz hzσ hzC hlfr => cf_lt_fam_big H.hσ H.hpF H.hBp F hξ hξ0 hξτ H.ht
+    (lt_transY H.ht H.hπ (F.F ξ hξ hξτ) (lt_psi_targetY H.ht) hπy) z hz hzσ
+    (cf_of_inC H hg hd hdt hgX hz hzC) hlfr
 
 /-! ### 共終数 `ω` の場合 -/
 
@@ -924,9 +1012,11 @@ namespace A2
 
 variable {π X R : Tm} {pre : List Tm} {k : Nat} {e p c : Tm}
 
-/-- `p < Ψ_π(A)`（前線の元） -/
-theorem hpA (H : A2 π X R pre k e p c) (A : Tm) : Lt p (.Psi π A) :=
-  sub_lt_psi H.hπ H.ht.psi.tgt A p (fr_elem H.hπ H.hpm).2.2.2.2 (Lt.ne H.hpπ) H.hpF H.hpπ
+/-- 種 `p` は `C(g, Ψ_π(A))` に入る（`σ` の始点か前線の元以下なので `Ψ_π(A)` 未満） -/
+theorem hpC (H : A2 π X R pre k e p c) {A g : Tm} (_hg0 : g ≠ .zero) (hcut : Cut (.Psi π A)) :
+    inC p g (.Psi π A) = true := by
+  rw [H.hp0]
+  exact a2Seed_inC_psi H.hπ H.ht.psi.tgt H.hσ hcut (H.hBlt A)
 
 /-- `t ∈ C(g, d)`（`t ≥ d`）なら `σ` の始点と種 `p` は `C(g, d)` に入り、`σ ∈ C(g, d)` -/
 theorem ub_parts (H : A2 π X R pre k e p c) {g d : Tm} (hg : WNF g) (hg0 : g ≠ .zero) (hd : Cut d)
@@ -958,7 +1048,10 @@ theorem ub_parts (H : A2 π X R pre k e p c) {g d : Tm} (hg : WNF g) (hg0 : g �
     inC_psi_iff.mpr (Or.inr ⟨hσCg, inC_succT (inC_one hg0) heC,
       lt_of_le_of_ltY (succT_WNF heF) hX hg (succT_leY heF hX heX) hXg⟩)
   have hπd : ¬ Lt π d := fun h' => hlt (hd _ _ ht hπ (lt_psi_targetY ht) h')
-  exact ⟨hσCg, hσd, hbC, fr_inC_of_tgt hπ hP.tgt hg hd hπC hπd p H.hpm, hXC, hXg⟩
+  have hpC : inC p g d = true := by
+    rw [H.hp0]
+    exact a2Seed_inC hπ hd hbC (fun w hw => fr_inC_of_tgt hπ hP.tgt hg hd hπC hπd w hw)
+  exact ⟨hσCg, hσd, hbC, hpC, hXC, hXg⟩
 
 end A2
 
@@ -1020,7 +1113,7 @@ theorem natInv_a2 {π X R : Tm} {pre : List Tm} {k : Nat} {e p c : Tm} (H : A2 �
   have hC : ∀ n, inC (γ n) (apx pre c (fundBig R (γ n))) (.Psi π (apx pre c (fundBig R (γ n))))
       = true := fun n =>
     F.ub _ _ n (hAF n) (hA0 n) (hcutA n) (hσCA n) (hσy n)
-      (fun p' hp' => by cases hp'; exact inC_of_lt_cut (hcutA n) _ hpF (H.hpA _))
+      (fun p' hp' => by cases hp'; exact H.hpC (hA0 n) (hcutA n))
   have hB : ∀ n, inC (base (.Xi k e)) (apx pre c (fundBig R (γ n)))
       (.Psi π (apx pre c (fundBig R (γ n)))) = true := fun n =>
     inC_of_lt_cut (hcutA n) _ hBF (H.hBlt _)
@@ -1149,7 +1242,7 @@ theorem bigInv_a2 {π X R : Tm} {pre : List Tm} {k : Nat} {e p c τ : Tm} (H : A
     F.ub _ _ ξ (hAF ξ hξ hξτ) (hA0 ξ hξ hξτ) (hcutA ξ hξ hξτ) hξ hξτ
       (inC_of_lt_cut (hcutA ξ hξ hξτ) _ hbτF (hcutA ξ hξ hξτ _ _ hbτF hτF hbτ (hτA ξ hξ hξτ)))
       (hσCA ξ hξ hξτ) (hσy ξ)
-      (fun p' hp' => by cases hp'; exact inC_of_lt_cut (hcutA ξ hξ hξτ) _ hpF (H.hpA _))
+      (fun p' hp' => by cases hp'; exact H.hpC (hA0 ξ hξ hξτ) (hcutA ξ hξ hξτ))
       (inC_of_lt_cut (hcutA ξ hξ hξτ) _ hξ (hcutA ξ hξ hξτ _ _ hξ hτF hξτ (hτA ξ hξ hξτ)))
   have hyF' : ∀ ξ, WNF ξ → Lt ξ τ → WNF (.Psi π (apx pre c (fundBig R (y ξ)))) := fun ξ hξ hξτ =>
     approx_nf ht hsX hRi hadj (hyF ξ hξ hξτ) (hyσ ξ hξ hξτ) (hyC ξ hξ hξτ)
@@ -1322,14 +1415,16 @@ theorem mahloVK_dom_ne (m : Nat) (q : Tm) (qs : DL) (ceil : Tm) (P : Option Tm) 
        exact ⟨(SeqD.app_dom_ne _ _ _ _ _ _ _).2, (SeqD.app_dom_ne _ _ _ _ _ _ _).1⟩)
     | (constructor <;> simp [SeqD.dom])
 
-/-- 外に足す型の対角化で `Ψ_σ(X) < Ψ_π(X)` の場合の列の不変量 -/
-theorem psiDiagFam_proof : PsiDiagFam := by
-  intro π X R σ pre ht hsX hns hRd hRi hπσ hσM hT ih
+/-- 外に足す型の対角化で `Ψ_σ(X) ≤ t` の場合の文脈（`A2`）を作る -/
+theorem a2_mk {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi π X)) (hsX : summands X = pre ++ [R])
+    (hns : ¬ isSucc X = true) (hRd : dom R = .big σ) (hRi : BigInv R σ) (hπσ : Lt π σ)
+    (hσM : ∀ m, σ ≠ .M m) (hT : ¬ Lt (.Psi π X) (.Psi σ X))
+    (ih : ∀ u, u.size < (Tm.Psi π X).size → WNF u → Inv u) :
+    ∃ k e p c, σ = .Xi k e ∧ A2 π X R pre k e p c := by
   obtain ⟨k, e, rfl, hlev, hnb⟩ := a2_shape ht hsX hns hRi hπσ hσM hT
   have hP := ht.psi
   have hX := hP.aF
   have hπ := hP.piF
-  have hπT := hP.tgt
   have hσF := hRi.props.σF
   have hlevσ : lev π = lev (Tm.Xi k e) := hlev
   have hkey : baseOf π (.Psi (.Xi k e) X) = false := by
@@ -1338,14 +1433,10 @@ theorem psiDiagFam_proof : PsiDiagFam := by
     | true =>
       exact absurd ((lt_psi_psiY hlevσ).mpr
         (Or.inr (Or.inr ⟨Lt.ne hπσ, Lt.asymmY hπ hσF hπσ, h⟩))) hT
-  have hBF : WNF (.Psi (.Xi k e) (sc e)) := wnf_base_xi hσF
-  obtain ⟨p, hpmax, hpm, hBp⟩ := a2_P0 hπ hπT hlev hBF hπσ hnb
   -- 列の記述
   have hr : (info R).seq.dom = .big (.Xi k e) := hRd
-  have hk : kAdj π π (.psi π) pre R (info R).seq = .zero := by unfold kAdj; rw [hr]
   have hfirst : (info R).seq.first = fundBig R .zero := by unfold SeqD.first; rw [hr]; rfl
-  obtain ⟨c, hmk, hadj⟩ := mkApp_plain ht hsX hns hk
-    (by rw [hfirst]; exact hRi.props.nf .zero WNF.zero hRi.props.pos)
+  obtain ⟨c, hmk, hadj⟩ := mkApp_plain ht hsX hns ((info R).seq.first)
   rw [hfirst] at hadj
   have hXe : X = oadd (ofSummands pre) R := eq_oadd_of_summands hX hsX
   have hσne : Tm.Xi k e ≠ π := fun h => Lt.ne hπσ h.symm
@@ -1360,10 +1451,10 @@ theorem psiDiagFam_proof : PsiDiagFam := by
   have hfam := (famOK_info R (.Xi k e) hr).1
   have hout : outsideMode π (.Xi k e) (.psi π) pre R = true := outsideMode_ne hσM hσne pre R
   have hcs : cs π X = .iapp (.psi π) pre (info R).seq .zero c
-      (mahloVK k e (info e).sums (.Xi k e) (some p)) := by
+      (mahloVK k e (info e).sums (.Xi k e) (some (a2Seed (.Xi k e) π))) := by
     rw [cs_lim_eq hX hsX hns, hmk, Option.map_some, Option.getD_some]
     simp only [outFix, hr, hσπB, hout, hTt, Bool.not_false, Bool.and_self, ↓reduceIte]
-    rw [hfam, hpmax]
+    rw [hfam]
     rfl
   have hRinv : ∀ a, a ∈ summands e → Inv a := by
     intro a ha
@@ -1374,10 +1465,15 @@ theorem psiDiagFam_proof : PsiDiagFam := by
     have h3 := size_le_of_mem_subs (mem_subs_of_mem_summands hRX)
     simp only [Tm.size] at h1 h2 h3 ⊢
     omega
-  have H : A2 π X R pre k e p c :=
-    ⟨ht, hsX, hns, hRd, hRi, hπσ, hlev, hkey, hnb, hpm, hpmax, hBp, hadj, hcs, hRinv⟩
+  exact ⟨k, e, a2Seed (.Xi k e) π, c, rfl,
+    ⟨ht, hsX, hns, hRd, hRi, hπσ, hlev, hkey, hnb, rfl, hadj, hmk, hcs, hRinv⟩⟩
+
+/-- 外に足す型の対角化で `Ψ_σ(X) < Ψ_π(X)` の場合の列の不変量 -/
+theorem psiDiagFam_proof : PsiDiagFam := by
+  intro π X R σ pre ht hsX hns hRd hRi hπσ hσM hT ih
+  obtain ⟨k, e, p, c, rfl, H⟩ := a2_mk ht hsX hns hRd hRi hπσ hσM hT ih
   have hdt : dom (.Psi π X) = (SeqD.iapp (.psi π) pre (info R).seq .zero c
-      (mahloVK k e (info e).sums (.Xi k e) (some p))).dom := by rw [dom_psi, hcs]
+      (mahloVK k e (info e).sums (.Xi k e) (some p))).dom := by rw [dom_psi, H.hcs]
   obtain ⟨hne0, hne1⟩ := mahloVK_dom_ne k e (info e).sums (.Xi k e) (some p)
   refine ⟨fun hd => ?_, fun τ hd => ?_⟩
   · rw [hdt] at hd

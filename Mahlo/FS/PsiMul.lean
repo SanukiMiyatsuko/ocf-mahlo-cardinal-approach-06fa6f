@@ -228,8 +228,6 @@ theorem prin_le_psi_zero {c x : Tm} (h : WNF (.Psi (.Om c) .zero)) (hs : isSucc 
           (om_le_omOf hxF.psi.piF hpF hd'p))
     · exact le_transY hxF hpF hBF (key _ hxF hnr) (le_omOf hpF)
 
-theorem not_isSucc_zero : isSucc .zero = false := rfl
-
 /-- `Ψ_{Ω_c}(0)` の列の不変量 -/
 theorem inv_psi_zero {c : Tm} (h : WNF (.Psi (.Om c) .zero)) : Inv (.Psi (.Om c) .zero) := by
   rcases h.psi_shape with e | ⟨c', e, hs⟩ | ⟨n, p, e⟩

@@ -931,8 +931,880 @@ def probeBachCE2 : IO Unit := do
   IO.println s!"b[0] = {b0.fmt}  NF {isNFF b0}"
   IO.println s!"b[0] < t[0] (Bachmann violation): {lt' b0 t0}"
 
+def dedupL (l : List Tm) : List Tm := (dedup l.toArray).toList
+
+/-- Bachmann 性の候補 `b`：部分項・降下列・`Ω`・`Ξ`・崩壊の引数の差し替え（`ω` 系の「悪い点」を混ぜる） -/
+def bachCands (t x y : Tm) : List Tm := Id.run do
+  let base := dedupL (subsT t ++ subsT x ++ subsT y)
+  let mut extra : List Tm := [one, nat' 2, w, add w one, O0]
+  for u in base do
+    match u with
+    | Psi (Om c) a =>
+      if c != zero then extra := extra ++ [Psi (Om c) w, Psi (Om c) (add a w), Psi (Om c) (sc a)]
+    | _ => pure ()
+  let pool0 := dedupL (base ++ extra)
+  let pool := dedupL (pool0 ++ pool0.map (fun d => Om d) ++ pool0.map (fun d => Om (sc d)))
+  let mut out : List Tm := []
+  let mut dd := y
+  for _ in [0:40] do
+    out := dd :: out
+    dd := fund dd zero
+  for d in pool do
+    out := Om d :: Xi 1 d :: out
+  for z in [x, y] do
+    match z with
+    | Psi π A =>
+      let pre := ofSummands (summands A).dropLast
+      for d in pool do
+        out := Psi π (oadd A d) :: Psi π (oadd pre d) :: out
+    | _ => pure ()
+  return out
+
+/-- A2 の反例の周りの特別な項 -/
+def bachSpecial : List Tm := Id.run do
+  let σ : Tm := Xi 1 zero
+  let Pp : Tm := Psi σ (M 1)
+  let γ : Tm := plus σ (plus Pp (plus one one))
+  let S1 : Tm := Psi (Xi 1 (plus σ one)) γ
+  let mut out : List Tm := []
+  for c in [Psi (O (sc Pp)) (nat' 5), Psi (O (sc Pp)) w, Psi (O (sc Pp)) (add w one), Pp, Psi (O Pp) one] do
+    for X in [plus S1 σ, σ, plus S1 (Xi 1 one), plus S1 (Xi 1 w)] do
+      out := Psi (O (sc c)) X :: out
+  return out
+
+/-- Bachmann 性の網羅的な検査（候補による） -/
+def probeBach (stride : Nat) (maxN : Nat := 2) : IO Unit := do
+  let out ← IO.getStdout
+  let pis := probePis.toArray
+  let args := probeArgs.toArray
+  let mut ts : Array Tm := #[]
+  let mut k := 0
+  for π in pis do
+    for X in args do
+      for X' in [X, sc X] do
+        k := k + 1
+        if k % stride == 0 then ts := ts.push (P π X')
+  ts := ts ++ bachSpecial.toArray
+  let mut cnt := 0
+  let mut nchk := 0
+  let mut nerr := 0
+  let mut kinds : Std.HashMap String (Nat × String) := {}
+  for t in ts do
+    if isNFF t then
+      match dom t with
+      | .omega =>
+        cnt := cnt + 1
+        if cnt % 20 == 0 then
+          out.putStrLn s!"... {cnt} ω-terms, {nchk} checks, {nerr} violations"
+          out.flush
+        for n in [0:maxN] do
+          let x := fundNat t n
+          let y := fundNat t (n + 1)
+          for b in bachCands t x y do
+            if lt' x b && le' b y && isNFF b then
+              nchk := nchk + 1
+              let b0 := fund b zero
+              if lt' b0 x then
+                nerr := nerr + 1
+                let lbl := shapeLabel (info t).seq
+                let prev := kinds.getD lbl (0, "")
+                let ex := if prev.2 == "" then
+                    s!"t = {t.fmt}\n    n = {n}, x = {x.fmt}\n    b = {b.fmt}\n    b[0] = {b0.fmt}"
+                  else prev.2
+                kinds := kinds.insert lbl (prev.1 + 1, ex)
+      | _ => pure ()
+  for (l, (c, ex)) in kinds.toArray do
+    out.putStrLn s!"{c}\t{l}\n  {ex}"
+  out.putStrLn s!"probeBach: {cnt} ω-terms, {nchk} checks, {nerr} violations"
+  out.flush
+
+/-- `y` から 0 番目をたどり（`x` 以下になるまで、`B` 歩まで）：`x` に着けば `some true`、飛び越せば
+    `some false`、歩数切れなら `none` -/
+def chainHitsSlow (y x : Tm) (B : Nat) : Option Bool := Id.run do
+  let mut z := y
+  for _ in [0:B] do
+    if lt' x z then z := fund z zero
+    else return some (z == x)
+  return none
+
+/-- 共通の先頭の加数を除く -/
+def stripCommon : List Tm → List Tm → List Tm × List Tm
+  | y :: ys, x :: xs => if y == x then stripCommon ys xs else (y :: ys, x :: xs)
+  | ys, xs => (ys, xs)
+
+/-- 主要項 `y` から 0 番目への一歩（`x < y`）。同じ崩壊先の `Ψ` なら、引数の共通の先頭 `p` を除いて
+    `y = Ψ_π(p + h + r)`（`r ≠ 0`、`x = Ψ_π(p + a)`、`a < h`）は `Ψ_π(p + h)` へ飛ぶ（引数の列は先頭を保つ） -/
+def principalStep (y x : Tm) : Tm :=
+  match y, x with
+  | Psi π B, Psi π' A =>
+    if π == π' then
+      let (bs', as') := stripCommon (summands B) (summands A)
+      match bs' with
+      | h :: _ :: _ =>
+        if as' == [] then fund y zero
+        else
+          let pfx := (summands B).take ((summands B).length - bs'.length)
+          let z := Psi π (ofSummands (pfx ++ [h]))
+          if isNFF z && lt' x z then z else fund y zero
+      | _ => fund y zero
+    else fund y zero
+  | _, _ => fund y zero
+
+/-- `chainHitsSlow` と同じ答えを速く出す：共通の先頭の加数を除き、主要項は `principalStep` で進む -/
+def chainHits (y x : Tm) (B : Nat) : Option Bool := Id.run do
+  let mut y := y
+  let mut x := x
+  for _ in [0:B] do
+    if y == x then return some true
+    if !lt' x y then return some false
+    let (ys', xs') := stripCommon (summands y) (summands x)
+    match ys' with
+    | [] => return some (xs' == [])
+    | h :: rest =>
+      if xs' == [] then return some true
+      x := ofSummands xs'
+      if rest == [] then y := principalStep h x else y := h
+  return none
+/-- 共終数 `σ` の列の添字の候補 -/
+def bigIdx (σ : Tm) : List Tm :=
+  [one, nat' 2, w, add w one, O0, add O0 one, base σ, sc (base σ), add (base σ) w, add (base σ) (base σ),
+    M1, O one, O (base σ), sc (O (base σ))].filter (fun ξ => lt' ξ σ && isNFF ξ)
+
+/-- 鎖の性質：`ω` 型なら `t[k]` は `t[k+1]` から 0 番目をたどって着く。正則項型なら `t[0]` は `t[ξ]` から着く。
+    戻り値は（誤り, 歩数切れの数） -/
+def chainCheck (t : Tm) (K B : Nat) : List String × Nat := Id.run do
+  let mut errs : List String := []
+  let mut unk := 0
+  match dom t with
+  | .omega =>
+    for k in [0:K] do
+      let x := fundNat t k
+      let y := fundNat t (k + 1)
+      match chainHits y x B with
+      | some true => pure ()
+      | some false => errs := errs ++ [s!"CPω k={k}: t[k] = {x.fmt}, t[k+1] = {y.fmt}"]
+      | none => unk := unk + 1
+  | .big σ =>
+    let x := fundBig t zero
+    for ξ in bigIdx σ do
+      let y := fundBig t ξ
+      if lt' x y then
+        match chainHits y x B with
+        | some true => pure ()
+        | some false => errs := errs ++ [s!"CPbig ξ={ξ.fmt}: t[0] = {x.fmt}, t[ξ] = {y.fmt}"]
+        | none => unk := unk + 1
+  | _ => pure ()
+  return (errs, unk)
+
+/-- 鎖の性質の網羅的な検査（崩壊と、その部分項・列の項） -/
+def probeChain (stride : Nat) (K : Nat := 3) (B : Nat := 20000) (verbose : Bool := false) : IO Unit := do
+  let out ← IO.getStdout
+  let pis := probePis.toArray
+  let args := probeArgs.toArray
+  let mut base : Array Tm := #[]
+  let mut k := 0
+  for π in pis do
+    for X in args do
+      for X' in [X, sc X] do
+        k := k + 1
+        if k % stride == 0 then base := base.push (P π X')
+  base := base ++ bachSpecial.toArray
+  let mut ts : Array Tm := #[]
+  for t in base do
+    if isNFF t then
+      ts := ts.push t
+      for s in subsT t do ts := ts.push s
+      match dom t with
+      | .omega => for n in [0:2] do ts := ts.push (fundNat t n)
+      | _ => pure ()
+  ts := dedup (ts.filter isNFF)
+  out.putStrLn s!"probeChain: {ts.size} terms"
+  out.flush
+  let mut cnt := 0
+  let mut nerr := 0
+  let mut nunk := 0
+  let mut kinds : Std.HashMap String (Nat × String) := {}
+  for t in ts do
+    cnt := cnt + 1
+    if verbose then
+      out.putStrLn s!"#{cnt} {t.fmt}"
+      out.flush
+    if cnt % 500 == 0 then
+      out.putStrLn s!"... {cnt} terms, {nerr} violations, {nunk} undetermined"
+      out.flush
+    let (errs, unk) := chainCheck t K B
+    nunk := nunk + unk
+    for e in errs do
+      nerr := nerr + 1
+      let lbl := shapeLabel (info t).seq
+      let prev := kinds.getD lbl (0, "")
+      let ex := if prev.2 == "" then s!"t = {t.fmt}\n    {e}" else prev.2
+      kinds := kinds.insert lbl (prev.1 + 1, ex)
+  for (l, (c, ex)) in kinds.toArray do
+    out.putStrLn s!"{c}\t{l}\n  {ex}"
+  out.putStrLn s!"probeChain: {cnt} terms, {nerr} violations, {nunk} undetermined"
+  out.flush
+
+/-- 鎖の検査の各歩を表示する（遅い項の調査用） -/
+def traceHits (y x : Tm) (B : Nat) : IO Unit := do
+  let out ← IO.getStdout
+  let mut y := y
+  let mut x := x
+  for i in [0:B] do
+    let t0 ← IO.monoMsNow
+    if y == x then out.putStrLn "hit"; return
+    if !lt' x y then out.putStrLn s!"overshoot: y = {y.fmt}"; return
+    let (ys', xs') := stripCommon (summands y) (summands x)
+    match ys' with
+    | [] => out.putStrLn s!"empty {xs'.length}"; return
+    | h :: rest =>
+      if xs' == [] then out.putStrLn "hit (prefix)"; return
+      x := ofSummands xs'
+      if rest == [] then y := principalStep h x else y := h
+      let t1 ← IO.monoMsNow
+      out.putStrLn s!"step {i} ({t1 - t0} ms): y = {y.fmt}\n   x = {x.fmt}"
+      out.flush
+  out.putStrLn "bound"
+
+def traceChain (t : Tm) (k : Nat) : IO Unit := do
+  IO.println s!"t = {t.fmt}"
+  match dom t with
+  | .omega =>
+    let x := fundNat t k
+    let y := fundNat t (k + 1)
+    IO.println s!"t[k] = {x.fmt}\nt[k+1] = {y.fmt}"
+    traceHits y x 60
+  | _ => IO.println "not omega"
+
+/-- 鎖の検査の反例（`M` への対角化、調整あり）の追跡 -/
+def traceCE3 : IO Unit := do
+  let Q : Tm := P (X1 (add M1 one)) (add M2 one)
+  let π : Tm := O (sc Q)
+  let X : Tm := add (P (O (add M1 one)) zero) M1
+  let t : Tm := P π X
+  IO.println s!"t = {t.fmt}  NF={isNFF t}"
+  IO.println s!"shape = {shapeLabel (info t).seq}"
+  for k in [0:3] do
+    IO.println s!"t[{k}] = {(fundNat t k).fmt}"
+  let x := fundNat t 0
+  let y := fundNat t 1
+  -- 正確な 0-鎖（遅い）を 400 歩まで
+  let mut z := y
+  let mut prev := y
+  for i in [0:400] do
+    if lt' x z then
+      prev := z
+      z := fund z zero
+    else
+      IO.println s!"stop at step {i}: z = {z.fmt}\n  equal to t[0]? {z == x}\n  prev = {prev.fmt}\n  prev[0] = {(fund prev zero).fmt}"
+      IO.println s!"  t[0] < prev: {lt' x prev}, prev <= t[1]: {le' prev y}, prev[0] < t[0]: {lt' (fund prev zero) x}"
+      return
+  IO.println s!"bound reached; z = {z.fmt}"
+
+/-- 加速した鎖で飛び越す点を探し、正確な反例 `b` を検算する -/
+def findWitness (t : Tm) (k : Nat) (B : Nat) : IO Unit := do
+  let x0 := fundNat t k
+  let y0 := fundNat t (k + 1)
+  let mut y := y0
+  let mut x := x0
+  let mut pfx : List Tm := []
+  for i in [0:B] do
+    if y == x then IO.println s!"hit at {i}"; return
+    if !lt' x y then IO.println s!"overshoot at {i} (unexpected)"; return
+    let (ys', xs') := stripCommon (summands y) (summands x)
+    let common := (summands y).take ((summands y).length - ys'.length)
+    pfx := pfx ++ common
+    match ys' with
+    | [] => IO.println "empty"; return
+    | h :: rest =>
+      if xs' == [] then IO.println s!"hit (prefix) at {i}"; return
+      x := ofSummands xs'
+      if rest == [] then
+        let ny := principalStep h x
+        -- 飛び越すなら h が反例の候補
+        if !lt' x ny && ny != x then
+          let b := ofSummands (pfx ++ [h])
+          let b0 := fund b zero
+          IO.println s!"jump over at step {i}:\n h = {h.fmt}\n x' = {x.fmt}\n next = {ny.fmt}"
+          IO.println s!" b = {b.fmt}\n NF(b) = {isNFF b}\n t[k] < b: {lt' x0 b}, b ≤ t[k+1]: {le' b y0}, b < t: {lt' b t}"
+          IO.println s!" b[0] = {b0.fmt}\n b[0] < t[k]: {lt' b0 x0}"
+          IO.println s!" exact step of h: fund h 0 = {(fund h zero).fmt}\n  fund h 0 == next: {fund h zero == ny}"
+          return
+        y := ny
+      else y := h
+  IO.println "bound"
+
+def traceCE5 : IO Unit := do
+  let D : Tm := P (X1 (add M1 M1)) (sc (add M1 M1))
+  let w5 : Tm := add M1 (add D (nat' 5))
+  let G : Tm := P (X1 w5) (sc w5)
+  let t : Tm := P (O (sc G)) (add M1 M1)
+  IO.println s!"G = {G.fmt} NF={isNFF G}; t NF={isNFF t}; shape={shapeLabel (info t).seq}"
+  for k in [0:3] do IO.println s!"t[{k}] = {(fundNat t k).fmt}"
+  findWitness t 0 3000
+
+def traceCE4 : IO Unit := do
+  let H : Tm := P (X1 M1) (add M1 one)
+  findWitness (P (X1 (add H one)) M1) 0 3000
+
+def traceCE3b : IO Unit := do
+  let Q : Tm := P (X1 (add M1 one)) (add M2 one)
+  let π : Tm := O (sc Q)
+  let X : Tm := add (P (O (add M1 one)) zero) M1
+  findWitness (P π X) 0 3000
+
+/-- `M_m` への対角化（`canonK`）の検査：鎖の性質と、閉じた点 `G` を使う近似（旧 `t[0]`）の共終性 -/
+def probeK (stride : Nat) (B : Nat := 300) : IO Unit := do
+  let out ← IO.getStdout
+  let pis := probePis.toArray
+  let args := probeArgs.toArray
+  let mut base : Array Tm := #[]
+  let mut k := 0
+  for π in pis do
+    for X in args do
+      for X' in [X, sc X] do
+        k := k + 1
+        if k % stride == 0 then base := base.push (P π X')
+  -- 追加：閉じた点を前線に持つ目標
+  let Q : Tm := P (X1 (add M1 one)) (add M2 one)
+  let G2 : Tm := P (X1 M1p) (add M2 one)
+  for G in [Q, G2, X1 (add M1 one), X1 M1p, P (X1 (add M1 M1)) M2] do
+    for X in [M1, add (P (O (add M1 one)) zero) M1, add M1 M1, add w M1, add G M1, add (X1 G) M1,
+        add (P (O (add M1 one)) zero) (add M1 M1)] do
+      base := base.push (P (O (sc G)) X)
+  let mut cnt := 0
+  let mut nerr := 0
+  let mut ncof := 0
+  let mut nunk := 0
+  for t in base do
+    if !isNFF t then continue
+    match t with
+    | Psi π X =>
+      let xs := summands X
+      if xs.isEmpty then continue
+      let R := xs.getLast!
+      let pre := xs.dropLast
+      match dom R with
+      | .big (M m) =>
+        if !(canonK (M m) (.psi π) pre R && !ltB (M m) π) then continue
+        cnt := cnt + 1
+        let (errs, unk) := chainCheck t 3 B
+        nunk := nunk + unk
+        for e in errs do
+          nerr := nerr + 1
+          if nerr ≤ 5 then out.putStrLn s!"CHAIN t = {t.fmt}\n  {e}"
+        let G := frCl (closedPt m) π
+        if G != zero then
+          let x := Psi π (oadd (ofSummands pre) (oadd G (fundBig R G)))
+          if isNFF x && lt' x t then
+            let mut ok := false
+            for n in [0:6] do
+              if le' x (fundNat t n) then ok := true
+            if !ok then
+              ncof := ncof + 1
+              if ncof ≤ 5 then out.putStrLn s!"COF t = {t.fmt}\n  x = {x.fmt}\n  t[5] = {(fundNat t 5).fmt}"
+      | _ => pure ()
+    | _ => pure ()
+  out.putStrLn s!"probeK: {cnt} canonK terms, {nerr} chain violations, {ncof} cofinality failures, {nunk} undetermined"
+
+/-- 族の閉包（床の場合）で、種が目印でない閉じた点のときの鎖の検査 -/
+def traceFloor2 : IO Unit := do
+  let D : Tm := P (X1 (add M1 M1)) (sc (add M1 M1))
+  let w5 : Tm := add M1 (add D (nat' 5))
+  let G : Tm := P (X1 w5) (sc w5)
+  let Y : Tm := add (P (O (add M1 one)) G) M1
+  let t : Tm := P (X1 Y) (sc Y)
+  IO.println s!"t NF={isNFF t} shape={shapeLabel (info t).seq}"
+  for k in [0:3] do IO.println s!"t[{k}] = {(fundNat t k).fmt}"
+  findWitness t 0 3000
+  findWitness t 1 3000
+
+def traceFloor : IO Unit := do
+  let D : Tm := P (X1 (add M1 M1)) (sc (add M1 M1))
+  let w5 : Tm := add M1 (add D (nat' 5))
+  let G : Tm := P (X1 w5) (sc w5)
+  let cands : List Tm := [
+    P (X1 (add M1 G)) (sc (add M1 G)),
+    P (X1 (add (add M1 M1) G)) (sc (add (add M1 M1) G)),
+    P (X1 (add M1 (add G one))) (sc (add M1 (add G one))),
+    P (X1 (add M1 (add G G))) (sc (add M1 (add G G))),
+    P (X1 (add M1 (O (sc G)))) (sc (add M1 (O (sc G)))),
+    P (O (sc G)) (add M1 (add M1 one)),
+    P (O (sc G)) (add M1 M1)]
+  for t in cands do
+    IO.println s!"t = {t.fmt}\n  NF={isNFF t} shape={shapeLabel (info t).seq}"
+    if isNFF t then
+      let (errs, unk) := chainCheck t 3 3000
+      IO.println s!"  violations: {errs.length}, undetermined: {unk}"
+      for e in errs.take 1 do IO.println s!"  {e}"
+
+/-- `canonK` の項の不変量（標準形・減少・単調）と、閉じた点 `G` から作る項での共終性の検査 -/
+def probeKInv (stride : Nat) : IO Unit := do
+  let out ← IO.getStdout
+  let pis := probePis.toArray
+  let args := probeArgs.toArray
+  let mut base : Array Tm := #[]
+  let mut k := 0
+  for π in pis do
+    for X in args do
+      for X' in [X, sc X] do
+        k := k + 1
+        if k % stride == 0 then base := base.push (P π X')
+  let Q : Tm := P (X1 (add M1 one)) (add M2 one)
+  let D : Tm := P (X1 (add M1 M1)) (sc (add M1 M1))
+  let w5 : Tm := add M1 (add D (nat' 5))
+  let G5 : Tm := P (X1 w5) (sc w5)
+  for G in [Q, G5, X1 (add M1 one), X1 M1p, P (X1 (add M1 M1)) M2, P (X1 M1) (add M1 one)] do
+    for X in [M1, add (P (O (add M1 one)) zero) M1, add M1 M1, add w M1, add G M1, add (X1 G) M1,
+        add (P (O (add M1 one)) zero) (add M1 M1), P (O (add M1 one)) M1] do
+      base := base.push (P (O (sc G)) X)
+      base := base.push (P (X1 (sc G)) X)
+  let mut cnt := 0
+  let mut nerr := 0
+  let mut ncof := 0
+  for t in base do
+    if !isNFF t then continue
+    match t with
+    | Psi π X =>
+      let xs := summands X
+      if xs.isEmpty then continue
+      let R := xs.getLast!
+      let pre := xs.dropLast
+      match dom R with
+      | .big (M m) =>
+        if !(canonK (M m) (.psi π) pre R && !ltB (M m) π) then continue
+        cnt := cnt + 1
+        for e in checkLocal t 4 [] do
+          nerr := nerr + 1
+          if nerr ≤ 5 then out.putStrLn s!"INV {e}"
+        let G := frCl (closedPt m) π
+        if G != zero then
+          for ξ in [G, sc G, add G G, Xi m (sc G), O (sc G)] do
+            let x := Psi π (oadd (ofSummands pre) (fundBig R ξ))
+            if isNFF x && lt' x t then
+              let mut ok := false
+              for n in [0:8] do
+                if le' x (fundNat t n) then ok := true
+              if !ok then
+                ncof := ncof + 1
+                if ncof ≤ 5 then out.putStrLn s!"COF t = {t.fmt}\n  x = {x.fmt}"
+      | _ => pure ()
+    | _ => pure ()
+  out.putStrLn s!"probeKInv: {cnt} canonK terms, {nerr} invariant errors, {ncof} cofinality failures"
+
+/-- 0-鎖（`0` まで、最大 `B` 歩） -/
+def chainL (y : Tm) (B : Nat) : List Tm := Id.run do
+  let mut out : List Tm := []
+  let mut z := y
+  for _ in [0:B] do
+    out := out ++ [z]
+    if z == zero then return out
+    z := fund z zero
+  return out
+
+/-- `Ξ` の持ち上げの材料の検査：
+  C1 `Ξ_m(E[0]) ≤ base(Ξ_m E)[0]`、C2 `Ξ_m(E[0]) < Ξ_m(E)`、C3 `E` の 0-鎖は `C(E+1, base(Ξ_m E))` に入る -/
+def probeXiLift (stride : Nat) : IO Unit := do
+  let out ← IO.getStdout
+  let mut es : Array Tm := #[]
+  let mut k := 0
+  for a in probeArgs do
+    for e in subsT a ++ chainL a 30 do
+      k := k + 1
+      if k % stride == 0 then es := es.push e
+  es := dedup es
+  out.putStrLn s!"probeXiLift: {es.size} arguments"
+  let mut n1 := 0
+  let mut e1 := 0
+  let mut e2 := 0
+  let mut e3 := 0
+  for E in es do
+    for m in [1, 2] do
+      let y := Xi m E
+      if E != zero && isNFF y then
+        n1 := n1 + 1
+        let E0 := fund E zero
+        let y0 := Xi m E0
+        let b := Psi y (sc E)
+        let b0 := fund b zero
+        if isNFF y0 then
+          if !lt' y0 y then
+            e2 := e2 + 1
+            if e2 ≤ 5 then out.putStrLn s!"C2 FAIL: E = {E.fmt}, E[0] = {E0.fmt}, m = {m}"
+          if !le' y0 b0 then
+            e1 := e1 + 1
+            if e1 ≤ 5 then out.putStrLn s!"C1 FAIL: E = {E.fmt}, E[0] = {E0.fmt}, m = {m}\n  base[0] = {b0.fmt}"
+        for u in chainL E 60 do
+          if !inC u (sc E) b then
+            e3 := e3 + 1
+            if e3 ≤ 5 then out.putStrLn s!"C3 FAIL: E = {E.fmt}, m = {m}, u = {u.fmt}"
+            break
+  out.putStrLn s!"probeXiLift: {n1} Ξ-terms, C1 {e1}, C2 {e2}, C3 {e3} failures"
+  out.flush
+
+set_option maxHeartbeats 2000000 in
+/-- 閉包の隣り合う項 `y_n = Ξ_m(A)`、`y_{n+1} = Ξ_m(A')` の区間に入る `Ξ_m(E)`・`base(Ξ_m E)` で、
+  `E ∉ (A, A']` のものを数え、`y_n ≤ base(Ξ_m E)[0]` を確かめる -/
+def probeCore (stride : Nat) (maxN : Nat := 3) : IO Unit := do
+  let out ← IO.getStdout
+  let pis := probePis.toArray
+  let args := probeArgs.toArray
+  let mut k := 0
+  let mut nt := 0
+  let mut nin := 0
+  let mut nout := 0
+  let mut nerr := 0
+  let mut nbase := 0
+  for π in pis do
+    match π with
+    | Xi m _ =>
+      for X in args do
+        k := k + 1
+        if k % stride == 0 then
+          let t := P π (sc X)
+          if isNFF t then
+            match dom t with
+            | .omega =>
+              nt := nt + 1
+              if nt % 25 == 0 then
+                out.putStrLn s!"... {nt} terms, in {nin}, out {nout}, base-in {nbase}, fail {nerr}"
+                out.flush
+              for n in [0:maxN] do
+                let y := fundNat t n
+                let y' := fundNat t (n + 1)
+                match y, y' with
+                | Xi m1 A, Xi m2 A' =>
+                  if m1 == m && m2 == m then
+                    let pool0 := dedupL (subsT A ++ subsT A' ++ chainL A' 25 ++ [y, y', one, w, O0])
+                    let mut cands : List Tm := pool0
+                    for d in pool0 do
+                      cands := cands ++ [oadd A d, oadd y d, sc A, oadd A y, oadd d y]
+                    for E in dedupL cands do
+                      let b := Xi m E
+                      if E != zero && isNFF b then
+                        let β := Psi b (sc E)
+                        let inI := lt' y b && le' b y'
+                        let inB := lt' y β && lt' β y'
+                        if inI || inB then
+                          let inArg : Bool := lt' A E && le' E A'
+                          if inArg then nin := nin + 1
+                          else
+                            nout := nout + 1
+                            if nout ≤ 6 then
+                              out.putStrLn s!"OUT: t = {t.fmt}\n  A = {A.fmt}\n  A' = {A'.fmt}\n  E = {E.fmt} (Ξ in: {inI}, base in: {inB})"
+                          if inB then nbase := nbase + 1
+                          let β0 := fund β zero
+                          if !le' y β0 then
+                            nerr := nerr + 1
+                            if nerr ≤ 6 then
+                              out.putStrLn s!"CORE FAIL: t = {t.fmt}\n  y = {y.fmt}\n  E = {E.fmt}\n  base[0] = {β0.fmt}"
+                | _, _ => pure ()
+            | _ => pure ()
+    | _ => pure ()
+  out.putStrLn s!"probeCore: {nt} terms, in {nin}, out {nout}, base-in {nbase}, CORE failures {nerr}"
+  out.flush
+
+set_option maxHeartbeats 2000000 in
+/-- 閉包の隣り合う項の引数 `A < A'` の区間の下界（引数の段の `LBI`）と、区間の外の `E` の分類 -/
+def probeCore2 (stride : Nat) (maxN : Nat := 3) : IO Unit := do
+  let out ← IO.getStdout
+  let pis := probePis.toArray
+  let args := probeArgs.toArray
+  let mut k := 0
+  let mut nt := 0
+  let mut nsteps := 0
+  let mut nlbiA := 0
+  let mut nbelow := 0
+  let mut nabove := 0
+  for π in pis do
+    match π with
+    | Xi m _ =>
+      for X in args do
+        k := k + 1
+        if k % stride == 0 then
+          for X' in [sc X, X] do
+            let t := P π X'
+            if isNFF t then
+              match dom t with
+              | .omega =>
+                nt := nt + 1
+                if nt % 50 == 0 then
+                  out.putStrLn s!"... {nt} terms, {nsteps} steps, argLBI fail {nlbiA}, below {nbelow}, above {nabove}"
+                  out.flush
+                for n in [0:maxN] do
+                  let y := fundNat t n
+                  let y' := fundNat t (n + 1)
+                  match y, y' with
+                  | Xi m1 A, Xi m2 A' =>
+                    if m1 == m && m2 == m then
+                      nsteps := nsteps + 1
+                      -- 引数の段の区間の下界
+                      for b in bachCands A' A A' do
+                        if lt' A b && le' b A' && isNFF b then
+                          let b0 := fund b zero
+                          if lt' b0 A then
+                            nlbiA := nlbiA + 1
+                            if nlbiA ≤ 5 then
+                              out.putStrLn s!"ARG-LBI FAIL: t = {t.fmt}\n  A = {A.fmt}\n  A' = {A'.fmt}\n  b = {b.fmt}\n  b[0] = {b0.fmt}"
+                      -- 区間の外の `E`
+                      let pool0 := dedupL (subsT A ++ subsT A' ++ chainL A' 25 ++ [y, y', one, w, O0])
+                      let mut cands : List Tm := pool0
+                      for d in pool0 do
+                        cands := cands ++ [oadd A d, oadd y d, sc A, oadd A y, oadd d y]
+                      for E in dedupL cands do
+                        let b := Xi m E
+                        if E != zero && isNFF b then
+                          let β := Psi b (sc E)
+                          let inI := lt' y b && le' b y'
+                          let inB := lt' y β && lt' β y'
+                          if (inI || inB) && !(lt' A E && le' E A') then
+                            if lt' A' E then
+                              nabove := nabove + 1
+                              if nabove ≤ 5 then
+                                out.putStrLn s!"ABOVE: t = {t.fmt}\n  A = {A.fmt}\n  A' = {A'.fmt}\n  E = {E.fmt} (Ξ in: {inI})"
+                            else nbelow := nbelow + 1
+                  | _, _ => pure ()
+              | _ => pure ()
+    | _ => pure ()
+  out.putStrLn s!"probeCore2: {nt} terms, {nsteps} steps, argLBI fail {nlbiA}, below {nbelow}, above {nabove}"
+  out.flush
+
+set_option maxHeartbeats 2000000 in
+/-- 閉包の隣り合う項 `Ξ_m(A) < Ξ_m(A')` の区間に入る `Ξ_m(E)`・`base(Ξ_m E)` で `E ∈ (A, A']` のものについて、
+  `A ≤ E[0]` が成り立つか（成り立たない例を表示） -/
+def probeCore3 (stride : Nat) (maxN : Nat := 3) : IO Unit := do
+  let out ← IO.getStdout
+  let pis := probePis.toArray
+  let args := probeArgs.toArray
+  let mut k := 0
+  let mut nt := 0
+  let mut nrel := 0
+  let mut nbad := 0
+  let mut nseed := 0
+  let mut nseedRel := 0
+  for π in pis do
+    match π with
+    | Xi m _ =>
+      for X in args do
+        k := k + 1
+        if k % stride == 0 then
+          for X' in [sc X, X] do
+            let t := P π X'
+            if isNFF t then
+              match dom t with
+              | .omega =>
+                nt := nt + 1
+                if nt % 50 == 0 then
+                  out.putStrLn s!"... {nt} terms, relevant-in {nrel}, chain-broken {nbad}, seeded steps {nseed}, seeded relevant {nseedRel}"
+                  out.flush
+                let seeded : Bool := match (info t).seq with
+                  | .app _ _ _ _ _ P' _ => P' != zero
+                  | _ => false
+                for n in [0:maxN] do
+                  let y := fundNat t n
+                  let y' := fundNat t (n + 1)
+                  match y, y' with
+                  | Xi m1 A, Xi m2 A' =>
+                    if m1 == m && m2 == m then
+                      if seeded then nseed := nseed + 1
+                      let pool0 := dedupL (subsT A ++ subsT A' ++ chainL A' 25 ++ [y, y', one, w, O0])
+                      let mut cands : List Tm := pool0 ++ bachCands A' A A'
+                      for d in pool0 do
+                        cands := cands ++ [oadd A d, oadd y d, sc A, oadd A y, oadd d y]
+                      for E in dedupL cands do
+                        let b := Xi m E
+                        if E != zero && isNFF b && lt' A E && le' E A' then
+                          let β := Psi b (sc E)
+                          let inI := lt' y b && le' b y'
+                          let inB := lt' y β && lt' β y'
+                          if inI || inB then
+                            nrel := nrel + 1
+                            if seeded then
+                              nseedRel := nseedRel + 1
+                              if nseedRel ≤ 4 then
+                                out.putStrLn s!"SEEDED-REL: t = {t.fmt}
+  A = {A.fmt}
+  E = {E.fmt}"
+                            let E0 := fund E zero
+                            if lt' E0 A then
+                              nbad := nbad + 1
+                              if nbad ≤ 6 then
+                                out.putStrLn s!"CHAIN-BROKEN: t = {t.fmt}\n  A = {A.fmt}\n  A' = {A'.fmt}\n  E = {E.fmt}\n  E[0] = {E0.fmt}\n  base[0] = {(fund β zero).fmt}"
+                  | _, _ => pure ()
+              | _ => pure ()
+    | _ => pure ()
+  out.putStrLn s!"probeCore3: {nt} terms, relevant-in {nrel}, chain-broken {nbad}"
+  out.flush
+
+/-- `Ω` について閉じた塔の元（`0`・不動点・その上の塔の元） -/
+partial def towerClosed (G : Tm) : Bool :=
+  G == zero || omegaFixed G ||
+    (match G with
+     | Om c => isSucc c && towerClosed (pred c)
+     | _ => false)
+
+set_option maxHeartbeats 2000000 in
+/-- `Ξ` への崩壊（後者）の族の閉包の分岐の分類 -/
+def probeBranch (stride : Nat) : IO Unit := do
+  let out ← IO.getStdout
+  let pis := probePis.toArray
+  let args := probeArgs.toArray
+  let mut k := 0
+  let mut counts : Std.HashMap String Nat := {}
+  let mut examples : Std.HashMap String String := {}
+  for π in pis do
+    match π with
+    | Xi m q =>
+      for X in args ++ #[q] do
+        k := k + 1
+        if k % stride == 0 then
+          let t := P π (sc X)
+          if isNFF t then
+            let base := X == q
+            let s := (info t).seq
+            let qBig := !lt' q (M m)
+            let lbl : String := match s with
+              | .tower G => s!"tower closed={towerClosed G} fixed={omegaFixed G}"
+              | .app _ _ pre R r P' _ =>
+                let dl := match r.dom with
+                  | .omega => "nat"
+                  | .big σ => if lt' σ π then "big" else s!"diag σ=M:{σ == M m}"
+                  | _ => "other"
+                s!"app seed={P' != zero} R<M={lt' R (M m)} pre={pre.length} {dl}"
+              | .shift _ => "shift"
+              | _ => "other"
+            let key := s!"base={base} qBig={qBig} {lbl}"
+            counts := counts.insert key (counts.getD key 0 + 1)
+            if !examples.contains key then examples := examples.insert key s!"{t.fmt}"
+    | _ => pure ()
+  for (key, c) in counts.toArray do
+    out.putStrLn s!"{c}\t{key}\n    e.g. {examples.getD key ""}"
+  out.flush
+
+set_option maxHeartbeats 2000000 in
+/-- 種つきの近似（`app` の種 `P' ≠ 0`、`R` は `ω`・正則項型）の区間に現れる `E` の形の調査 -/
+def probeSeed (stride : Nat) (maxN : Nat := 3) : IO Unit := do
+  let out ← IO.getStdout
+  let pis := probePis.toArray
+  let args := probeArgs.toArray
+  let mut k := 0
+  let mut nsteps := 0
+  let mut nrel := 0
+  let mut nE0 := 0
+  let mut nfr := 0
+  let mut nprint := 0
+  for π in pis do
+    match π with
+    | Xi m _ =>
+      for X in args do
+        k := k + 1
+        if k % stride == 0 then
+          for X' in [sc X, X] do
+            let t := P π X'
+            if isNFF t then
+              match (info t).seq with
+              | .app _ _ pre R r P' _ =>
+                let isDiag := match r.dom with
+                  | .big σ => !lt' σ π
+                  | _ => false
+                let isOm := match dom t with
+                  | .omega => true
+                  | _ => false
+                if P' != zero && !isDiag && isOm then
+                  for n in [0:maxN] do
+                    let y := fundNat t n
+                    let y' := fundNat t (n + 1)
+                    match y, y' with
+                    | Xi m1 A, Xi m2 A' =>
+                      if m1 == m && m2 == m then
+                        nsteps := nsteps + 1
+                        let pool0 := dedupL (subsT A ++ subsT A' ++ chainL A' 25 ++ [y, y', one, w, O0])
+                        let mut cands : List Tm := pool0 ++ bachCands A' A A'
+                        for d in pool0 do
+                          cands := cands ++ [oadd A d, oadd y d, sc A, oadd A y, oadd d y]
+                        for E in dedupL cands do
+                          let b := Xi m E
+                          if E != zero && isNFF b && lt' A E && le' E A' then
+                            let β := Psi b (sc E)
+                            let inI := lt' y b && le' b y'
+                            let inB := lt' y β && lt' β y'
+                            if inI || inB then
+                              nrel := nrel + 1
+                              let E0 := fund E zero
+                              let relE0 := lt' y (Xi m E0)
+                              if !(lt' A E0 && relE0) && E0 != A then
+                                nE0 := nE0 + 1
+                                if nprint < 6 then
+                                  nprint := nprint + 1
+                                  out.putStrLn s!"E0-NOT-REL: t = {t.fmt}\n  A = {A.fmt}\n  E = {E.fmt}\n  E[0] = {E0.fmt}  (A < E0: {lt' A E0}, rel: {relE0})"
+                              -- 前線の上界
+                              let pE := maxL (frB b b)
+                              match pE with
+                              | some pe => if !le' y pe then nfr := nfr + 1
+                              | none => nfr := nfr + 1
+                    | _, _ => pure ()
+              | _ => pure ()
+    | _ => pure ()
+  out.putStrLn s!"probeSeed: {nsteps} steps, relevant {nrel}, E0 not relevant (and ≠ A) {nE0}, front-max < y {nfr}"
+  out.flush
+
+set_option maxHeartbeats 16000000 in
 def main (args : List String) : IO Unit := do
   let mode := args.headD "6"
+  if mode == "probeSeed" then
+    probeSeed ((args[1]? >>= String.toNat?).getD 1)
+    return
+  if mode == "probeBranch" then
+    probeBranch ((args[1]? >>= String.toNat?).getD 1)
+    return
+  if mode == "probeCore3" then
+    probeCore3 ((args[1]? >>= String.toNat?).getD 1)
+    return
+  if mode == "probeCore2" then
+    probeCore2 ((args[1]? >>= String.toNat?).getD 1)
+    return
+  if mode == "probeCore" then
+    probeCore ((args[1]? >>= String.toNat?).getD 1)
+    return
+  if mode == "probeXiLift" then
+    probeXiLift ((args[1]? >>= String.toNat?).getD 1)
+    return
+  if mode == "probeKInv" then
+    probeKInv ((args[1]? >>= String.toNat?).getD 10)
+    return
+  if mode == "probeK" then
+    probeK ((args[1]? >>= String.toNat?).getD 10) ((args[2]? >>= String.toNat?).getD 300)
+    return
+  if mode == "traceFloor2" then
+    traceFloor2
+    return
+  if mode == "traceFloor" then
+    traceFloor
+    return
+  if mode == "traceCE5" then
+    traceCE5
+    return
+  if mode == "traceCE4" then
+    traceCE4
+    return
+  if mode == "traceCE3b" then
+    traceCE3b
+    return
+  if mode == "traceCE3" then
+    traceCE3
+    return
+  if mode == "traceChain" then
+    let a := plus (Psi (Om (plus one one)) (plus (M 2) (Xi 1 one))) (Psi (Om (plus one one)) (plus (M 2) (Xi 1 one)))
+    traceChain (Psi (Om (plus one one)) (plus (M 2) (Xi 1 one))) ((args[1]? >>= String.toNat?).getD 0)
+    traceChain a ((args[1]? >>= String.toNat?).getD 0)
+    return
+  if mode == "probeChain" then
+    probeChain ((args[1]? >>= String.toNat?).getD 10) ((args[2]? >>= String.toNat?).getD 3)
+      ((args[3]? >>= String.toNat?).getD 20000) (args[4]? == some "v")
+    return
+  if mode == "probeBach" then
+    probeBach ((args[1]? >>= String.toNat?).getD 10)
+    return
   if mode == "probeBachCE" then
     probeBachCE
     return
@@ -994,3 +1866,4 @@ def main (args : List String) : IO Unit := do
   IO.println s!"one: {st.nOne}, omega: {st.nOmega}, big: {st.nBig}, errors: {st.errs.size}"
   for e in st.errs do
     IO.println e
+

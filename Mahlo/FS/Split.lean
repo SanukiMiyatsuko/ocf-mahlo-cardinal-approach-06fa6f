@@ -271,18 +271,6 @@ theorem cof_psi_gen {π X : Tm} (hπ : WNF π) (hT : IsTgt π) {ι : Type} (A : 
 
 /-! ### 和の後ろの部分 -/
 
-/-- 加数の後ろの部分は全体以下 -/
-theorem le_of_summands_suffix {a a' : Tm} (L : List Tm) (ha : WNF a) (ha' : WNF a')
-    (hs : summands a = L ++ summands a') : Le a' a := by
-  have hn : NFL (L ++ summands a') := by rw [← hs]; exact nfl_summands ha
-  have hL := wnf_ofSummands (nfl_append_left hn)
-  have e : a = oadd (ofSummands L) a' := by
-    apply eq_of_summands_eq ha (wnf_oadd hL ha')
-    have h1 := summands_oadd_nfl hn
-    rw [ofSummands_summands a' ha'] at h1
-    rw [h1, hs]
-  rw [e]; exact le_oadd_right hL ha'
-
 /-- 加数の後ろの部分（`0` でない）の `lfr` は全体の `lfr` の元以下 -/
 theorem lfr_suffix {σ : Tm} (hσ : WNF σ) :
     ∀ (pre : List Tm) {a a' f : Tm}, WNF a → WNF a' → a' ≠ .zero →
@@ -306,7 +294,7 @@ theorem lfr_suffix {σ : Tm} (hσ : WNF σ) :
       by_cases haσ : Lt (.plus a1 a2) σ
       · refine ⟨_, by rw [lfr_of_lt haσ]; exact List.mem_singleton.mpr rfl, ?_⟩
         have ha'a : Le a' (.plus a1 a2) := by
-          refine le_of_summands_suffix (p :: pre) ha ha' ?_
+          refine le_of_tail (L := p :: pre) ha ha' ?_
           simp only [summands, hs.1, hs.2, List.cons_append]
         exact le_transY hfF ha' ha (lfr_le hσ ha' hf) ha'a
       · obtain ⟨g, hg, hfg⟩ := ih ha2 ha' ha'0 hs.2 hf
