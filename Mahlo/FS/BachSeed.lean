@@ -703,7 +703,7 @@ theorem psiS_fs_high {m : Nat} {Y : Tm} (hm : 1 ≤ m) (hR : WNF (.Psi (succM m)
     · subst hY0
       have e : cs (succM m) .zero = .mul (.M m) 2 := by
         show cs (.Om (.plus (.M m) one)) .zero = _
-        rw [cs_zero_om, if_neg (by intro h; cases h)]
+        rw [cs_zero_om, ite_eq_right (by intro h; cases h)]
         rfl
       rw [e]
       refine ⟨fun n _ => Or.inr ⟨.M m, n + 2, rfl, rfl, Or.inl rfl⟩, fun σ ξ hd => ?_⟩

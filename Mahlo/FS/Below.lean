@@ -198,7 +198,7 @@ theorem below_lt_tgt {π A : Tm} (hπ : WNF π) (hT : IsTgt π) : ∀ b : Tm, WN
     · have hl' : k + 1 = max 1 (lev c) := by simpa [lev] using hl
       have hne : c ≠ .M k := by
         intro e; subst e; simp [isSucc, summands, one] at hs
-      rw [lt_principal_iff rfl rfl, (cmpP_M_om hl').1, if_neg hne]
+      rw [lt_principal_iff rfl rfl, (cmpP_M_om hl').1, ite_eq_right hne]
     · have hl' : k + 1 = n := by simpa [lev] using hl
       exact (lt_principal_iff rfl rfl).mpr (cmpP_M_xi hl').1
   | Om e =>

@@ -143,16 +143,16 @@ theorem bigProps_reg {t b : Tm} (ht : WNF t) (htp : isPrincipal t = true) (ht0 :
   · rw [hf]; exact le_oadd_right hb hx
 
 theorem dom_om_reg {c : Tm} (h : omReg c) : dom (.Om c) = .big (.Om c) := by
-  rw [dom_om, if_pos h]
+  rw [dom_om, ite_eq_left h]
 
 theorem dom_om_lim {c : Tm} (h : ¬ omReg c) : dom (.Om c) = dom c := by
-  rw [dom_om, if_neg h]
+  rw [dom_om, ite_eq_right h]
 
 theorem fundBig_om_reg {c : Tm} (h : omReg c) (ξ : Tm) : fundBig (.Om c) ξ = oadd (base (.Om c)) ξ := by
-  rw [fundBig_om, if_pos h]
+  rw [fundBig_om, ite_eq_left h]
 
 theorem fundBig_om_lim {c : Tm} (h : ¬ omReg c) (ξ : Tm) : fundBig (.Om c) ξ = .Om (sc (fundBig c ξ)) := by
-  rw [fundBig_om, if_neg h]
+  rw [fundBig_om, ite_eq_right h]
 
 /-- `M_n` の始点 `M_{n-1}`（`n = 1` なら 0） -/
 theorem wnf_kTerm (m : Nat) : WNF (kTerm m) := by

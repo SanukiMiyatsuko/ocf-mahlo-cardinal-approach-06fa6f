@@ -207,7 +207,7 @@ theorem outFix_app_eq {τ : Tm} {g : Gen} {pre : List Tm} {R : Tm} {r : SeqD} {P
       have hc : (!ltB (Xi m e) τ && outsideMode τ (Xi m e) g pre R &&
           ltB (Psi (Xi m e) (oadd (ofSummands pre) R)) (Psi τ (oadd (ofSummands pre) R))) = false := by
         rcases h _ hd with h' | h' | h' <;> simp [h']
-      rw [if_neg (by rw [hc]; decide)]
+      rw [ite_eq_right (by rw [hc]; decide)]
     | _ => rfl
   | _ => rfl
 

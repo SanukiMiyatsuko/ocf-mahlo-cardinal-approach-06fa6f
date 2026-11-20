@@ -191,7 +191,7 @@ theorem lad_M {m : Nat} {q R : Tm} {pre rest : List Tm} (G : XG m q .zero pre re
 theorem merge_small : ∀ (l : List Tm) (a : Tm), (∀ y, y ∈ l → leB y a = false) → merge [a] l = l ++ [a]
   | [], a, _ => by rw [merge.eq_2]; rfl
   | y :: ys, a, h => by
-    rw [merge.eq_3, if_neg (by rw [h y List.mem_cons_self]; decide),
+    rw [merge.eq_3, ite_eq_right (by rw [h y List.mem_cons_self]; decide),
       merge_small ys a (fun z hz => h z (List.mem_cons_of_mem _ hz))]
     rfl
 

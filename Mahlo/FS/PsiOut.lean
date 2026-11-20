@@ -417,7 +417,7 @@ theorem inv_psi_diag_out_full {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi �
         (oadd_lt_oadd hcσF (hxF ξ hξ hξσ) (hxF _ hyF hyσ) (hRP.mono _ _ hξ hyF hξy hyσ)))
   have e0 : ¬ validR σ (oadd (ofSummands pre) (fundBig R .zero)) = true →
       γ 0 = .Psi σ (apx pre cσ (fundBig R .zero)) := fun hv0 => by
-    rw [hγ0, if_neg hv0, col_notM hσM, if_pos (hvalσ _ WNF.zero hRP.pos)]
+    rw [hγ0, ite_eq_right hv0, col_notM hσM, ite_eq_left (hvalσ _ WNF.zero hRP.pos)]
   have key : ∀ n, WNF (γ n) ∧ Lt (γ n) σ ∧ ¬ isSucc (γ n) = true ∧
       validR σ (oadd (ofSummands pre) (fundBig R (γ n))) = true ∧
       Lt (γ n) (.Psi σ (apx pre cσ (fundBig R (γ n)))) ∧
@@ -426,7 +426,7 @@ theorem inv_psi_diag_out_full {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi �
     induction n with
     | zero =>
       by_cases hv0 : validR σ (oadd (ofSummands pre) (fundBig R .zero)) = true
-      · rw [hγ0, if_pos hv0]
+      · rw [hγ0, ite_eq_left hv0]
         exact ⟨WNF.zero, hRP.pos, by simp [isSucc, summands], hv0, zero_lt (by intro e; cases e),
           Or.inl rfl⟩
       · obtain ⟨hyF, hyσ, hyns, hby, hyy⟩ := hstep _ WNF.zero hRP.pos (by simp [isSucc, summands])
@@ -437,7 +437,7 @@ theorem inv_psi_diag_out_full {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi �
     | succ n ih =>
       obtain ⟨hγF, hγσ, hγns, -, hγy, -⟩ := ih
       have e1 : γ (n + 1) = .Psi σ (apx pre cσ (fundBig R (γ n))) := by
-        rw [hγS n, col_notM hσM, if_pos (hvalσ _ hγF hγσ)]
+        rw [hγS n, col_notM hσM, ite_eq_left (hvalσ _ hγF hγσ)]
       obtain ⟨hyF, hyσ, hyns, hby, hyy⟩ := hstep _ hγF hγσ hγns hγy
       rw [e1]
       exact ⟨hyF, hyσ, hyns, validR_iff.mpr (hvalid _ hyF hyσ (Or.inr hby)), hyy,
@@ -448,7 +448,7 @@ theorem inv_psi_diag_out_full {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi �
   have hγv : ∀ n, validR σ (oadd (ofSummands pre) (fundBig R (γ n))) = true := fun n =>
     (key n).2.2.2.1
   have hcol : ∀ n, γ (n + 1) = .Psi σ (apx pre cσ (fundBig R (γ n))) := fun n => by
-    rw [hγS n, col_notM hσM, if_pos (hvalσ _ (hγF n) (hγσ n))]
+    rw [hγS n, col_notM hσM, ite_eq_left (hvalσ _ (hγF n) (hγσ n))]
   have hγm : ∀ n, Lt (γ n) (γ (n + 1)) := fun n => by rw [hcol n]; exact (key n).2.2.2.2.1
   have hγpos : ∀ n, Lt (base σ) (γ (n + 1)) ∧ Cl σ (γ (n + 1)) := by
     intro n
@@ -582,7 +582,7 @@ theorem inv_psi_diag_out_full {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi �
     induction n with
     | zero =>
       by_cases hv0 : validR σ (oadd (ofSummands pre) (fundBig R .zero)) = true
-      · have h0 : γ 0 = .zero := by rw [hγ0, if_pos hv0]
+      · have h0 : γ 0 = .zero := by rw [hγ0, ite_eq_left hv0]
         rw [h0]; exact inC_zero _ _
       · exact hpsiC .zero 0 WNF.zero hRP.pos (e0 hv0) (inC_zero _ _)
     | succ n ih =>
@@ -624,7 +624,7 @@ theorem inv_psi_diag_out_full {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi �
     induction n with
     | zero =>
       by_cases hv0 : validR σ (oadd (ofSummands pre) (fundBig R .zero)) = true
-      · rw [hγ0, if_pos hv0]; exact inC_zero _ _
+      · rw [hγ0, ite_eq_left hv0]; exact inC_zero _ _
       · rw [e0 hv0]; exact hpsi .zero WNF.zero hRP.pos (inC_zero _ _)
     | succ n ih =>
       rw [hcol n]
@@ -691,7 +691,7 @@ theorem inv_psi_diag_out_full {π X R σ : Tm} {pre : List Tm} (ht : WNF (.Psi �
     fun σ hd => by rw [hdom] at hd; cases hd⟩, c, cσ, γ,
     ⟨hTF, hdom, hmk, hadj, hmkσ, hadjσ, hf, hγF, hγσ, ?_, hcol, hγm, fun n => ?_⟩⟩
   · by_cases hv0 : validR σ (oadd (ofSummands pre) (fundBig R .zero)) = true
-    · left; rw [hγ0, if_pos hv0]
+    · left; rw [hγ0, ite_eq_left hv0]
     · right; exact e0 hv0
   · rcases (key n).2.2.2.2.2 with h | h
     · exact Or.inl h

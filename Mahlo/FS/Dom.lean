@@ -27,8 +27,8 @@ instance (c : Tm) : Decidable (omReg c) := inferInstanceAs (Decidable (c = zero 
 theorem info_seq_om (c : Tm) :
     (info (Om c)).seq = if omReg c then .reg (Om c) (base (Om c)) [] else .om (info c).seq := by
   by_cases h : omReg c
-  · rw [if_pos h]; simp only [info]; rw [if_pos (show c = zero ∨ isSucc c = true from h)]
-  · rw [if_neg h]; simp only [info]; rw [if_neg (show ¬(c = zero ∨ isSucc c = true) from h)]
+  · rw [ite_eq_left h]; simp only [info]; rw [ite_eq_left (show c = zero ∨ isSucc c = true from h)]
+  · rw [ite_eq_right h]; simp only [info]; rw [ite_eq_right (show ¬(c = zero ∨ isSucc c = true) from h)]
 
 theorem dom_om (c : Tm) : dom (Om c) = if omReg c then .big (Om c) else dom c := by
   unfold dom
@@ -54,7 +54,7 @@ theorem fundNat_plus (a b : Tm) (n : Nat) : fundNat (plus a b) n = oadd a (fundN
 theorem fundNat_om {c : Tm} (hc : ¬ omReg c) (n : Nat) :
     fundNat (Om c) n = Om (sc (fundNat c n)) := by
   unfold fundNat
-  rw [info_seq_om, if_neg hc]
+  rw [info_seq_om, ite_eq_right hc]
   rfl
 
 theorem fundNat_psi (π X : Tm) (n : Nat) : fundNat (Psi π X) n = (cs π X).nat n := rfl

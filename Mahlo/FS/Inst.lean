@@ -96,7 +96,7 @@ theorem fund_omega {t : Tm} (h : dom t = .omega) (n : Nat) : fund t (ofNatT n) =
 theorem fund_big {t σ ξ : Tm} (h : dom t = .big σ) (hξ : Lt ξ σ) : fund t ξ = fundBig t ξ := by
   rw [fund_eq, h]
   show fundBig t (if ltB ξ σ = true then ξ else zero) = _
-  rw [if_pos (ltB_iff.mpr hξ)]
+  rw [ite_eq_left (ltB_iff.mpr hξ)]
 
 /-- `NF` の `≤`（`Well_Order` から入るもの）と `Le` -/
 theorem nf_le {a b : NF} : a ≤ b ↔ Le a.1 b.1 := by

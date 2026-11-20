@@ -28,7 +28,7 @@ theorem merge_comm : ∀ {A B : List Tm}, NFL A → NFL B → merge A B = merge 
         | true =>
           rw [leB_principal haF.2 hbF.2, cmpP_swapP hbF haF, e] at h
           exact absurd rfl h
-      rw [if_pos h1, if_neg (by rw [h2]; decide), merge_comm (nfl_tail hA) hB]
+      rw [ite_eq_left h1, ite_eq_right (by rw [h2]; decide), merge_comm (nfl_tail hA) hB]
     | gt =>
       have h1 : leB b a = false := by
         cases h : leB b a with
@@ -37,12 +37,12 @@ theorem merge_comm : ∀ {A B : List Tm}, NFL A → NFL B → merge A B = merge 
           rw [leB_principal hbF.2 haF.2, e] at h
           exact absurd rfl h
       have h2 : leB a b = true := (leB_principal haF.2 hbF.2).mpr (by rw [cmpP_swapP hbF haF, e]; decide)
-      rw [if_neg (by rw [h1]; decide), if_pos h2, merge_comm hA (nfl_tail hB)]
+      rw [ite_eq_right (by rw [h1]; decide), ite_eq_left h2, merge_comm hA (nfl_tail hB)]
     | eq =>
       have hab := eq_of_cmpP_eqY hbF.1 haF.1 hbF.2 haF.2 e
       subst hab
       have h1 : leB b b = true := (leB_principal hbF.2 hbF.2).mpr (by rw [cmpP_self]; decide)
-      rw [if_pos h1, if_pos h1]
+      rw [ite_eq_left h1, ite_eq_left h1]
       congr 1
       rw [merge_comm (nfl_tail hA) hB, merge_comm (nfl_tail hB) hA]
       cases As with
@@ -51,14 +51,14 @@ theorem merge_comm : ∀ {A B : List Tm}, NFL A → NFL B → merge A B = merge 
         | nil => rfl
         | cons d Ds =>
           have hd : leB d b = true := (leB_iff).mpr hB.2.1
-          rw [merge.eq_2, merge.eq_3, if_pos hd, merge.eq_1]
+          rw [merge.eq_2, merge.eq_3, ite_eq_left hd, merge.eq_1]
       | cons c Cs =>
         have hc : leB c b = true := (leB_iff).mpr hA.2.1
         cases Bs with
-        | nil => rw [merge.eq_3, if_pos hc, merge.eq_2, merge.eq_1]
+        | nil => rw [merge.eq_3, ite_eq_left hc, merge.eq_2, merge.eq_1]
         | cons d Ds =>
           have hd : leB d b = true := (leB_iff).mpr hB.2.1
-          rw [merge.eq_3 b (d :: Ds) c Cs, if_pos hc, merge.eq_3 b (c :: Cs) d Ds, if_pos hd,
+          rw [merge.eq_3 b (d :: Ds) c Cs, ite_eq_left hc, merge.eq_3 b (c :: Cs) d Ds, ite_eq_left hd,
             merge_comm (nfl_tail hB) (nfl_tail hA)]
 termination_by A B => A.length + B.length
 

@@ -253,8 +253,8 @@ theorem zb_reg {σ : Tm} (hσ : WNF σ) (hreg : IsRegY σ) :
     · show kTerm (n - 1) = .zero ∨ isPrincipal (kTerm (n - 1)) = true
       unfold kTerm
       by_cases h : n - 1 = 0
-      · rw [if_pos h]; exact Or.inl rfl
-      · rw [if_neg h]; exact Or.inr rfl
+      · rw [ite_eq_left h]; exact Or.inl rfl
+      · rw [ite_eq_right h]; exact Or.inr rfl
     · exact Or.inr rfl
   intro b
   induction b using size_induction with
@@ -272,7 +272,7 @@ theorem zb_reg {σ : Tm} (hσ : WNF σ) (hreg : IsRegY σ) :
       by_cases hn1 : n = 1
       · subst hn1; exact zero_le _
       have hbe : base (.M n) = .M (n - 1) := by
-        show kTerm (n - 1) = _; unfold kTerm; rw [if_neg (by omega)]
+        show kTerm (n - 1) = _; unfold kTerm; rw [ite_eq_right (by omega)]
       rw [hbe] at h1 ⊢
       have hlb : lev (Tm.Psi ρ C) = n := by
         have e1 := lev_le_of_lt_gen h1
@@ -296,7 +296,7 @@ theorem zb_reg {σ : Tm} (hσ : WNF σ) (hreg : IsRegY σ) :
       · have hk : k = n := by simp only [lev] at hlb; exact hlb
         subst hk
         have := floorLev_lt_f0_xi hb
-        have hfl : floorLev k = .M (k - 1) := by unfold floorLev kTerm; rw [if_neg (by omega)]
+        have hfl : floorLev k = .M (k - 1) := by unfold floorLev kTerm; rw [ite_eq_right (by omega)]
         rw [hfl] at this
         exact Or.inr this
     · exact zb_tgt_psi hσ (Or.inr (Or.inr ⟨n, p, rfl⟩)) hb h1 h2
@@ -320,7 +320,7 @@ theorem zb_reg {σ : Tm} (hσ : WNF σ) (hreg : IsRegY σ) :
       by_cases hn1 : n = 1
       · subst hn1; omega
       have hbe : base (.M n) = .M (n - 1) := by
-        show kTerm (n - 1) = _; unfold kTerm; rw [if_neg (by omega)]
+        show kTerm (n - 1) = _; unfold kTerm; rw [ite_eq_right (by omega)]
       rw [hbe] at h1
       have hjn : j = n - 1 := by
         have e1 := (lt_M_iffY (WNF.M' (show 1 ≤ n - 1 by omega)) hj).mp h1
@@ -335,7 +335,7 @@ theorem zb_reg {σ : Tm} (hσ : WNF σ) (hreg : IsRegY σ) :
       have hk : Lt (kTerm (n - 1)) (base (.Xi n p)) :=
         ((baseOf_xi_iff n p _).mp (base_selfY (show WNF (Tm.Psi (.Xi n p) (sc p)) from hbF))).1
       have hkj : kTerm (n - 1) = .M j := by
-        unfold kTerm; rw [if_neg (by omega)]; congr 1; omega
+        unfold kTerm; rw [ite_eq_right (by omega)]; congr 1; omega
       rw [hkj] at hk
       exact Lt.irrefl _ (lt_transY hb hbF hb hk h1)
   | Om w =>
@@ -356,7 +356,7 @@ theorem zb_reg {σ : Tm} (hσ : WNF σ) (hreg : IsRegY σ) :
       by_cases hn1 : n = 1
       · subst hn1; exact zero_le _
       have hbe : base (.M n) = .M (n - 1) := by
-        show kTerm (n - 1) = _; unfold kTerm; rw [if_neg (by omega)]
+        show kTerm (n - 1) = _; unfold kTerm; rw [ite_eq_right (by omega)]
       rw [hbe] at h1 ⊢
       have hMF : WNF (.M (n - 1)) := WNF.M' (by omega)
       have hlb : lev (Tm.Om w) = n := by
@@ -430,7 +430,7 @@ theorem zb_reg {σ : Tm} (hσ : WNF σ) (hreg : IsRegY σ) :
       by_cases hn1 : n = 1
       · subst hn1; exact zero_le _
       have hbe : base (.M n) = .M (n - 1) := by
-        show kTerm (n - 1) = _; unfold kTerm; rw [if_neg (by omega)]
+        show kTerm (n - 1) = _; unfold kTerm; rw [ite_eq_right (by omega)]
       rw [hbe] at h1 ⊢
       have hlj : j = n := by
         have e1 := lev_le_of_lt_gen h1
@@ -439,7 +439,7 @@ theorem zb_reg {σ : Tm} (hσ : WNF σ) (hreg : IsRegY σ) :
       subst hlj
       rw [hf0]
       have hk := ((baseOf_xi_iff j e _).mp (base_selfY hbbF)).1
-      have hkj : kTerm (j - 1) = .M (j - 1) := by unfold kTerm; rw [if_neg (by omega)]
+      have hkj : kTerm (j - 1) = .M (j - 1) := by unfold kTerm; rw [ite_eq_right (by omega)]
       rw [hkj] at hk
       exact Or.inr hk
     · -- `σ = Ξ_n(p)`：`Ξ_j(e)` の底は `σ` の底より大きい

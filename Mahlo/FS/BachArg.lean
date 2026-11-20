@@ -590,7 +590,7 @@ theorem psi_harg_apx {π X R c x y B : Tm} {pre : List Tm}
         have htr : tailRaw (some δ) Q₁ = some (ofSummands Q₂') := by
           unfold tailRaw
           dsimp only
-          rw [hδs, if_pos ⟨by simp, List.take_left' rfl⟩, List.drop_left' rfl]
+          rw [hδs, ite_eq_left ⟨by simp, List.take_left' rfl⟩, List.drop_left' rfl]
         -- `B` の調整は `rt_B + 1`
         have hcB : cB = sc (ofSummands Q₂') := by
           rcases hcBS with ⟨-, hn⟩ | ⟨rt', hrt', hc'⟩

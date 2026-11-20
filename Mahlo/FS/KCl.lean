@@ -19,13 +19,13 @@ theorem frB_eq_fr (R : Tm) : ∀ x : Tm, frB R x = fr R x
   | .Xi m a => by
     rw [frB, fr, frB_eq_fr R a]
     by_cases h : Lt (.Xi m a) R
-    · rw [if_pos (ltB_iff.mpr h), if_pos h]
-    · rw [if_neg (fun h' => h (ltB_iff.mp h')), if_neg h]
+    · rw [ite_eq_left (ltB_iff.mpr h), ite_eq_left h]
+    · rw [ite_eq_right (fun h' => h (ltB_iff.mp h')), ite_eq_right h]
   | .Psi p a => by
     rw [frB, fr, frB_eq_fr R p, frB_eq_fr R a]
     by_cases h : Lt (.Psi p a) R
-    · rw [if_pos (ltB_iff.mpr h), if_pos h]
-    · rw [if_neg (fun h' => h (ltB_iff.mp h')), if_neg h]
+    · rw [ite_eq_left (ltB_iff.mpr h), ite_eq_left h]
+    · rw [ite_eq_right (fun h' => h (ltB_iff.mp h')), ite_eq_right h]
 
 /-! ### `selfVis` -/
 
